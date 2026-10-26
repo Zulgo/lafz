@@ -120,7 +120,7 @@ class MacPill:
         self.panel.performSelector_withObject_afterDelay_("orderOut:", None, 0.16)  # after the fade; show() cancels it
 
     # ---- per-frame update (called ~60x/s while visible) ----
-    def update(self, t, level, locked=False, text=""):
+    def update(self, t, level, locked=False, text="", command=False):
         if not self.visible:
             return
         want = WIDTHS["listening_text" if self.mode == "listening" and text else self.mode]
@@ -138,7 +138,7 @@ class MacPill:
             d.setHidden_(listening)
         mid = H / 2
         if listening:
-            color = AMBER if locked else RED
+            color = VIOLET if command else AMBER if locked else RED
             self.dot.setBackgroundColor_(color)
             self.dot.setShadowColor_(color)
             self.dot.setPosition_((20, mid))

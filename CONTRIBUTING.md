@@ -29,7 +29,9 @@ uv run python app.py
 - Code style: plain Python, short functions, comments only where something isn't obvious. Match the surrounding code.
 - macOS UI pieces (`pill.py`, `menubar.py`, key monitoring in `system.py`) must run on the **main thread**.
 - Speech models run on a single dedicated thread (`Murmur.stt_thread` in `app.py`). MLX models only work on the thread that loaded them.
-- Before opening a pull request, check that the app starts, a dictation works end to end, and `uvx pyflakes *.py` is clean.
+- Before opening a pull request, run `uv run pytest` and `uvx pyflakes *.py`, and check that a dictation works end to end.
+  The same tests run automatically on macOS and Windows for every pull request.
+- The window is plain HTML/CSS/JavaScript in `ui/`, served by `webui.py`; no build step is needed.
 
 ## Pull requests
 

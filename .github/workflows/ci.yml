@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest]  # macos-14 = Apple Silicon
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install dependencies
+        run: uv sync
+      - name: Lint
+        run: uvx pyflakes app.py engine.py learning.py system.py webui.py make_icon.py
+      - name: Lint (macOS modules)
+        if: runner.os == 'macOS'
+        run: uvx pyflakes pill.py menubar.py macwindow.py
+      - name: Check the interface script
+        run: node --check ui/app.js
+      - name: Run tests
+        run: uv run pytest -q

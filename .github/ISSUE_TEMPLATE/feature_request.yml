@@ -1,0 +1,21 @@
+name: Feature request
+description: Suggest an idea for Murmur
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: Describe the situation or problem, not just the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+  - type: checkboxes
+    id: local
+    attributes:
+      label: Privacy
+      options:
+        - label: This works without sending anything off the computer (Murmur is local-only)

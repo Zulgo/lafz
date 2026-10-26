@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Murmur</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <div class="ambient" aria-hidden="true"><span class="glow g1"></span><span class="glow g2"></span><span class="glow g3"></span></div>
+
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="/icon.png" alt="" class="brand-icon">
+      <div>
+        <div class="brand-name">Murmur</div>
+        <div class="brand-sub">Private dictation</div>
+      </div>
+    </div>
+    <nav class="nav" id="nav">
+      <a href="#home" data-page="home"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/></svg><span>Home</span></a>
+      <a href="#history" data-page="history"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span>History</span></a>
+      <a href="#dictionary" data-page="dictionary"><svg viewBox="0 0 24 24"><path d="M5 4.5h10.5a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h10.5"/></svg><span>Dictionary</span></a>
+      <a href="#settings" data-page="settings"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Settings</span></a>
+      <a href="#setup" data-page="setup"><svg viewBox="0 0 24 24"><path d="M12 3.5 19 6v5.5c0 4.2-3 7.6-7 9-4-1.4-7-4.8-7-9V6z"/><path d="m9 12 2.2 2.2L15.5 10"/></svg><span>Setup</span><i class="badge" id="setup-badge" hidden></i></a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="live" id="live"><span class="live-dot"></span><span id="live-text">Starting…</span></div>
+      <button class="ghost small" data-action="quit" title="Quit Murmur">Quit</button>
+    </div>
+  </aside>
+
+  <main class="main" id="main">
+    <!-- HOME -->
+    <section class="page" id="page-home">
+      <div class="bento">
+        <div class="shell span-8 tall">
+          <div class="core hero">
+            <span class="eyebrow">On-device · Nothing leaves this computer</span>
+            <h1 id="hero-title">Ready when you are</h1>
+            <p class="hero-sub" id="hero-sub">Hold your hotkey, speak naturally, let go. Your words appear where your cursor is.</p>
+            <div class="orb-wrap">
+              <div class="orb" id="orb"><span class="ring r1"></span><span class="ring r2"></span><span class="ring r3"></span><span class="core-dot"></span></div>
+              <div class="preview" id="preview"></div>
+            </div>
+            <div class="keys" id="keys"></div>
+          </div>
+        </div>
+        <div class="span-4 stack">
+          <div class="shell"><div class="core stat"><span class="stat-label">Words today</span><span class="stat-num" id="st-words">0</span><span class="stat-foot" id="st-dict">0 dictations</span></div></div>
+          <div class="shell"><div class="core stat"><span class="stat-label">Time saved</span><span class="stat-num" id="st-saved">0<small>min</small></span><span class="stat-foot">vs. typing at 40 wpm</span></div></div>
+          <div class="shell"><div class="core stat"><span class="stat-label">All time</span><span class="stat-num" id="st-total">0</span><span class="stat-foot">words dictated</span></div></div>
+        </div>
+        <div class="shell span-7">
+          <div class="core card">
+            <div class="card-head"><h3>Latest</h3><span class="muted small">Edit and copy. Your fixes teach Murmur.</span></div>
+            <textarea id="latest" class="field latest" placeholder="Your last dictation appears here." spellcheck="true"></textarea>
+            <div class="row gap">
+              <button class="pill primary" id="copy-latest"><span>Copy</span><i class="pill-icon"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2.5"/><path d="M5 15V6a1 1 0 0 1 1-1h9"/></svg></i></button>
+              <button class="pill" data-action="undo"><span>Undo last paste</span><i class="pill-icon kbd-mini" id="undo-key">⌃⌘Z</i></button>
+            </div>
+          </div>
+        </div>
+        <div class="shell span-5">
+          <div class="core card">
+            <div class="card-head"><h3>Style</h3></div>
+            <div class="segmented" id="styles"></div>
+            <div class="toggles" id="quick-toggles"></div>
+          </div>
+        </div>
+        <div class="shell span-12">
+          <div class="core card">
+            <div class="card-head"><h3>Recent</h3><a href="#history" class="link small">See all</a></div>
+            <div class="list" id="recent"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="page" id="page-history">
+      <header class="page-head">
+        <div><span class="eyebrow">Stored only on this computer</span><h2>History</h2></div>
+        <div class="row gap">
+          <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><input id="search" placeholder="Search your dictations"></label>
+          <button class="ghost" id="clear-history">Clear all</button>
+        </div>
+      </header>
+      <div id="history-list"></div>
+    </section>
+
+    <!-- DICTIONARY -->
+    <section class="page" id="page-dictionary">
+      <header class="page-head"><div><span class="eyebrow">Teach Murmur your words</span><h2>Dictionary</h2></div></header>
+      <div class="bento">
+        <div class="shell span-6">
+          <div class="core card">
+            <div class="card-head"><h3>Your words</h3><span class="muted small" id="dict-count"></span></div>
+            <p class="muted">One per line: names, brands, jargon. For a word that keeps coming out wrong, add a fix like <code>dust in -&gt; Dustin</code>.</p>
+            <textarea id="dictionary" class="field mono tall-field" spellcheck="false"></textarea>
+          </div>
+        </div>
+        <div class="shell span-6">
+          <div class="core card">
+            <div class="card-head"><h3>Learned automatically</h3><button class="ghost small" id="reset-learning">Reset</button></div>
+            <p class="muted">When you correct the same word twice, Murmur fixes it for you from then on. Names you use often become spelling hints.</p>
+            <div id="learned"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="page" id="page-settings">
+      <header class="page-head"><div><span class="eyebrow">Make it yours</span><h2>Settings</h2></div></header>
+      <div class="bento">
+        <div class="shell span-6"><div class="core card" id="set-dictation"><div class="card-head"><h3>Dictation</h3></div></div></div>
+        <div class="shell span-6"><div class="core card" id="set-behaviour"><div class="card-head"><h3>Behaviour</h3></div></div></div>
+        <div class="shell span-6"><div class="core card" id="set-privacy"><div class="card-head"><h3>Privacy &amp; memory</h3></div></div></div>
+        <div class="shell span-6"><div class="core card" id="set-system"><div class="card-head"><h3>System</h3></div></div></div>
+        <div class="shell span-12">
+          <div class="core card">
+            <div class="card-head"><h3>Per-app styles</h3><span class="muted small">App name = raw, clean, formal or bullets</span></div>
+            <textarea id="rules" class="field mono" spellcheck="false" rows="5"></textarea>
+          </div>
+        </div>
+      </div>
+      <p class="about muted small" id="about"></p>
+    </section>
+
+    <!-- SETUP -->
+    <section class="page" id="page-setup">
+      <header class="page-head">
+        <div><span class="eyebrow">A one-time checklist</span><h2>Setup</h2></div>
+        <div class="row gap"><button class="ghost" data-action="refresh">Check again</button><button class="pill primary" data-action="restart" id="restart-btn"><span>Restart Murmur</span><i class="pill-icon"><svg viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.05-4.95"/><path d="M19 4.5V8h-3.5"/></svg></i></button></div>
+      </header>
+      <p class="muted lead" id="setup-lead"></p>
+      <div class="shell"><div class="core" id="setup-list"></div></div>
+    </section>
+  </main>
+
+  <!-- Compare models -->
+  <div class="overlay" id="compare" hidden>
+    <div class="shell modal"><div class="core card">
+      <div class="card-head"><h3>Compare speech models</h3><button class="ghost small" id="compare-close">Close</button></div>
+      <p class="muted" id="compare-status"></p>
+      <div id="compare-results"></div>
+      <div class="row gap" id="compare-buttons"></div>
+    </div></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

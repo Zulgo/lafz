@@ -10,6 +10,7 @@ VAD_MODEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "
 VAD_CHUNK, VAD_CONTEXT = 512, 64  # Silero VAD at 16 kHz: 32 ms chunks plus 64 samples of context
 OLLAMA = "http://localhost:11434"
 LLM_MODEL = "qwen2.5:1.5b"  # Apache 2.0; ~1 GB, fast and faithful for cleanup
+KEEP_ALIVE = "30m"  # how long Ollama keeps the cleanup model in memory; the app shortens it in memory-saver mode
 HALLUCINATIONS = {"thank you.", "thanks for watching.", "you", "bye.", "thank you very much."}
 # Only short function words are de-duplicated; repeats like "had had" or "very very" can be intentional.
 STUTTER_WORDS = r"i|i'm|a|an|the|to|and|but|so|we|it|in|of|on|for|you|he|she|they|my|this|what|just"
@@ -17,18 +18,26 @@ STYLES = {"raw": "Raw (exact words)", "clean": "Clean (remove fillers)", "formal
           "bullets": "Bullet points"}
 CLEAN_PROMPT = ("You are a transcript editor. Remove filler words (um, uh, like, you know), stutters and repeated "
                 "words, and fix punctuation and capitalization. Do NOT rephrase, reorder, summarize or change any "
-                "other word. Reply with the edited text only.\n\nText: um so I I want to uh schedule it for like "
+                "other word. Keep the text in its original language. Reply with the edited text only.\n\n"
+                "Text: um so I I want to uh schedule it for like "
                 "tomorrow\nEdited: So I want to schedule it for tomorrow.\n\nText: ")
 REWRITE_PROMPTS = {
     "formal": "Rewrite this dictated text in a clear, polite, professional tone. Keep all facts and the meaning. "
-              "Do not add greetings, sign-offs or anything new. Reply with the rewritten text only.\n\nText: ",
+              "Do not add greetings, sign-offs or anything new. Keep the original language. "
+              "Reply with the rewritten text only.\n\nText: ",
     "bullets": "Turn this dictated text into concise bullet points (one idea per line, each starting with '- '). "
-               "Keep all facts. Do not add anything new. Reply with the bullet points only.\n\nText: ",
+               "Keep all facts. Do not add anything new. Keep the original language. "
+               "Reply with the bullet points only.\n\nText: ",
 }
 MODELS = {"whisper-accurate": "Whisper Accurate (best with Dictionary words)",
           "whisper-fast": "Whisper Fast (smaller)"}
 MLX_WHISPER = {"whisper-fast": "mlx-community/whisper-small.en-mlx",
                "whisper-accurate": "mlx-community/whisper-large-v3-turbo"}
+MLX_WHISPER_MULTILINGUAL = {"whisper-fast": "mlx-community/whisper-small-mlx",
+                            "whisper-accurate": "mlx-community/whisper-large-v3-turbo"}
+LANGUAGES = {"en": "English", "auto": "Auto-detect", "ar": "Arabic", "zh": "Chinese", "nl": "Dutch",
+             "fr": "French", "de": "German", "hi": "Hindi", "it": "Italian", "ja": "Japanese", "ko": "Korean",
+             "pt": "Portuguese", "ru": "Russian", "es": "Spanish", "tr": "Turkish", "ur": "Urdu"}
 
 
 def model_key(choice):
@@ -52,16 +61,19 @@ def level(block):
     return min(1.0, rms * 12)
 
 
-def load_stt(choice="whisper-accurate"):
-    """Return stt(audio, prompt="") -> text for float32 16 kHz audio."""
+def load_stt(choice="whisper-accurate", language="en"):
+    """Return stt(audio, prompt="") -> text for float32 16 kHz audio. language: a LANGUAGES key ('auto' detects).
+    English uses the smaller English-only models where they exist; other languages use multilingual ones."""
     choice = model_key(choice)
+    english = language == "en"
+    lang = None if language == "auto" else language
     if APPLE_SILICON:
         import mlx_whisper
-        repo = MLX_WHISPER[choice]
+        repo = (MLX_WHISPER if english else MLX_WHISPER_MULTILINGUAL)[choice]
         mlx_whisper.transcribe(np.zeros(SR, dtype="float32"), path_or_hf_repo=repo)  # download + warm up
 
         def run(a, prompt=""):
-            return mlx_whisper.transcribe(a, path_or_hf_repo=repo, language="en", temperature=0.0,
+            return mlx_whisper.transcribe(a, path_or_hf_repo=repo, language=lang, temperature=0.0,
                                           condition_on_previous_text=False, no_speech_threshold=0.6,
                                           initial_prompt=prompt or None)["text"].strip()
         return run
@@ -70,10 +82,12 @@ def load_stt(choice="whisper-accurate"):
     def make(cuda):
         accurate = choice == "whisper-accurate"
         name = ("large-v3-turbo" if accurate else "small.en") if cuda else ("small.en" if accurate else "base.en")
+        if not english:
+            name = name.replace(".en", "")
         model = WhisperModel(name, device="cuda" if cuda else "cpu", compute_type="float16" if cuda else "int8")
 
         def run(a, prompt="", vad=True):
-            segs, _ = model.transcribe(a, language="en", beam_size=1, vad_filter=vad,
+            segs, _ = model.transcribe(a, language=lang, beam_size=1, vad_filter=vad,
                                        condition_on_previous_text=False, initial_prompt=prompt or None)
             return " ".join(s.text.strip() for s in segs).strip()
         run(np.zeros(SR, dtype="float32"), vad=False)  # warm up; surfaces missing CUDA libraries now
@@ -208,7 +222,7 @@ def rule_clean(text):
     text = re.sub(r"\s+", " ", text).strip()
     if text:
         text = text[0].upper() + text[1:]
-        if text[-1] not in ".?!":
+        if text[-1] not in ".?!,;:":
             text += "."
     return text
 
@@ -216,7 +230,7 @@ def rule_clean(text):
 def ollama(prompt, timeout=30):
     req = urllib.request.Request(
         f"{OLLAMA}/api/generate",
-        json.dumps({"model": LLM_MODEL, "prompt": prompt, "stream": False, "keep_alive": "30m",
+        json.dumps({"model": LLM_MODEL, "prompt": prompt, "stream": False, "keep_alive": KEEP_ALIVE,
                     "options": {"temperature": 0}}).encode(), {"Content-Type": "application/json"})
     return json.load(urllib.request.urlopen(req, timeout=timeout))["response"].strip()
 
@@ -225,7 +239,7 @@ def warm_ollama():
     """Load the cleanup model into memory ahead of the first dictation (an empty prompt just loads it)."""
     try:
         req = urllib.request.Request(f"{OLLAMA}/api/generate", json.dumps(
-            {"model": LLM_MODEL, "prompt": "", "keep_alive": "30m"}).encode(), {"Content-Type": "application/json"})
+            {"model": LLM_MODEL, "prompt": "", "keep_alive": KEEP_ALIVE}).encode(), {"Content-Type": "application/json"})
         urllib.request.urlopen(req, timeout=60).read()
     except Exception:
         pass
@@ -252,7 +266,7 @@ def cleanup(text, style):
             out = ollama(CLEAN_PROMPT + base + "\nEdited:")
         except Exception:
             return base, "Ollama isn't running — used basic cleanup"
-        norm = lambda s: re.sub(r"[^a-z0-9]", "", s.lower())
+        norm = lambda s: re.sub(r"[\W_]", "", s.lower())  # letters and digits in any alphabet
         if out and difflib.SequenceMatcher(None, norm(base), norm(out)).ratio() >= 0.9:
             return out, ""
         return base, "Kept your exact words (AI cleanup changed too much)"
@@ -261,3 +275,56 @@ def cleanup(text, style):
     except Exception:
         return base, f"Ollama isn't running — can't apply '{STYLES[style]}', used basic cleanup"
     return (out or base), ""
+
+
+# ---- voice commands ----
+_COMMANDS = [  # (spoken phrase, replacement); punctuation Whisper puts around the phrase is absorbed
+    (r"new paragraph", "\n\n"),
+    (r"new line", "\n"),
+    (r"(?:bullet point|next bullet)", "\n- "),
+]
+
+
+def apply_voice_commands(text):
+    """Turn spoken formatting commands into formatting: "...today. New line. Thanks" -> "...today.\nThanks"."""
+    for phrase, out in _COMMANDS:
+        text = re.sub(rf"\s*\b{phrase}\b[.,;:!]?\s*", out, text, flags=re.I)  # keeps punctuation said before it
+    text = re.sub(r"^\n+", "", text)  # a command at the very start shouldn't leave an empty first line
+    text = re.sub(r"[ \t]+\n", "\n", text)
+    # Capitalize the first letter of each new line or bullet
+    return re.sub(r"(^|\n)(- )?([a-z])", lambda m: m.group(1) + (m.group(2) or "") + m.group(3).upper(), text)
+
+
+def cleanup_lines(text, style):
+    """Clean each line separately, so formatting from voice commands survives (the AI would merge the lines).
+    Returns (text, note)."""
+    out, notes = [], []
+    for line in text.split("\n"):
+        bullet = line.startswith("- ")
+        body = line[2:] if bullet else line
+        if body.strip():
+            said_period = body.rstrip().endswith(".")
+            body, note = cleanup(body, style)
+            if bullet and not said_period:
+                body = body.rstrip(".")  # list items read better without a full stop
+            notes.append(note)
+        out.append(("- " if bullet else "") + body)
+    return "\n".join(out), next((n for n in notes if n), "")
+
+
+# ---- command mode: an instruction applied to selected text ----
+def run_command(instruction, selection):
+    """Apply a spoken instruction to the selected text (or, without a selection, write what was asked).
+    Returns (text, note); text is None if it couldn't be done."""
+    if selection.strip():
+        prompt = ("You are a writing assistant. Apply the instruction to the text. Reply with the resulting text "
+                  f"only, with no explanations or quotes.\n\nInstruction: {instruction}\n\nText:\n{selection}\n\n"
+                  "Result:")
+    else:
+        prompt = ("You are a writing assistant. Write what the instruction asks for. Reply with the text only, "
+                  f"with no explanations or quotes.\n\nInstruction: {instruction}\n\nResult:")
+    try:
+        out = ollama(prompt, timeout=90).strip().strip('"')
+    except Exception:
+        return None, "Command mode needs Ollama — start it from the Setup tab"
+    return (out or None), ("" if out else "The AI returned nothing")

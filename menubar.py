@@ -47,15 +47,16 @@ class MenuBar:
         self.state = None
         self.set_state("idle")
 
-    def set_state(self, state, locked=False):
+    def set_state(self, state, locked=False, command=False):
         """state: 'idle', 'listening', 'transcribing' or 'cleaning'."""
-        if (state, locked) == self.state:
+        if (state, locked, command) == self.state:
             return
-        self.state = (state, locked)
+        self.state = (state, locked, command)
         button = self.item.button()
         tint = None  # idle: plain black/white bear
         if state == "listening":
-            tint = NSColor.systemOrangeColor() if locked else NSColor.systemRedColor()
+            tint = (NSColor.systemPurpleColor() if command else NSColor.systemOrangeColor() if locked else
+                    NSColor.systemRedColor())
         button.setContentTintColor_(tint)
         button.setAlphaValue_(0.5 if state in ("transcribing", "cleaning") else 1.0)  # dimmed while working
 

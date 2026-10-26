@@ -120,6 +120,78 @@ def frontmost():
     return None
 
 
+def selected_text():
+    """macOS: the text selected in the focused app (for command mode), or "" if none or not readable."""
+    if not MAC:
+        return ""
+    from ApplicationServices import (AXUIElementCopyAttributeValue, AXUIElementCreateSystemWide,
+                                     kAXFocusedUIElementAttribute, kAXSelectedTextAttribute, kAXSubroleAttribute)
+    err, field = AXUIElementCopyAttributeValue(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute, None)
+    if err or field is None:
+        return ""
+    if AXUIElementCopyAttributeValue(field, kAXSubroleAttribute, None)[1] == "AXSecureTextField":
+        return ""
+    err, text = AXUIElementCopyAttributeValue(field, kAXSelectedTextAttribute, None)
+    return text if not err and isinstance(text, str) else ""
+
+
+# ---- clipboard (macOS: everything on it, including images and files) ----
+def copy_text(text):
+    """macOS: put text on the clipboard. Returns False where the caller should use Tk's clipboard instead."""
+    if not MAC:
+        return False
+    from AppKit import NSPasteboard, NSPasteboardTypeString
+    board = NSPasteboard.generalPasteboard()
+    board.clearContents()
+    board.setString_forType_(text, NSPasteboardTypeString)
+    return True
+
+
+def clipboard_snapshot():
+    """Copy of the current clipboard, to put back after Murmur pastes. None where unsupported."""
+    if not MAC:
+        return None
+    from AppKit import NSPasteboard
+    board = NSPasteboard.generalPasteboard()
+    items = [[(str(t), item.dataForType_(t)) for t in item.types()] for item in (board.pasteboardItems() or [])]
+    return {"items": items}
+
+
+def clipboard_mark(snapshot):
+    """Remember the clipboard's state right after Murmur put its text there."""
+    if snapshot is not None:
+        from AppKit import NSPasteboard
+        snapshot["count"] = NSPasteboard.generalPasteboard().changeCount()
+
+
+def clipboard_restore(snapshot):
+    """Put the saved clipboard back, unless the user copied something new in the meantime."""
+    if snapshot is None:
+        return
+    from AppKit import NSPasteboard, NSPasteboardItem
+    board = NSPasteboard.generalPasteboard()
+    if board.changeCount() != snapshot.get("count"):
+        return  # the user copied something else since: keep that
+    board.clearContents()
+    restored = []
+    for types in snapshot["items"]:
+        item = NSPasteboardItem.alloc().init()
+        for t, data in types:
+            if data is not None:
+                item.setData_forType_(data, t)
+        restored.append(item)
+    if restored:
+        board.writeObjects_(restored)
+
+
+def set_show_in_dock(show):
+    """macOS: show Murmur in the Dock, or run from the menu bar only."""
+    if MAC:
+        from AppKit import NSApplication, NSApplicationActivationPolicyAccessory, NSApplicationActivationPolicyRegular
+        NSApplication.sharedApplication().setActivationPolicy_(
+            NSApplicationActivationPolicyRegular if show else NSApplicationActivationPolicyAccessory)
+
+
 def focused_text_field():
     """macOS: (field, cursor_position) for the focused editable text field in any app, or None.
     Password fields are never read. Used only to notice how the user corrects text Murmur pasted."""
@@ -185,21 +257,21 @@ def mac_key(event):
 
 
 def watch_keys(on_key):
-    """Call on_key(name, is_down) for modifier keys ('alt_r', 'cmd_l', ...) and 'z', in any app.
+    """Call on_key(name, is_down, in_other_app) for modifier keys ('alt_r', 'cmd_l', ...) and 'z', in any app.
     macOS: native NSEvent monitors on the main thread. (pynput's listener thread calls a keyboard-layout API that
     newer macOS only allows on the main thread, which crashes the app.) Windows: pynput.
     Returns objects that must be kept alive."""
     if MAC:
         from AppKit import NSEvent, NSEventMaskFlagsChanged, NSEventMaskKeyDown, NSEventMaskKeyUp
 
-        def handle(event):
+        def handle(event, other_app):
             key = mac_key(event)
             if key:
-                on_key(*key)
+                on_key(*key, other_app)
 
         mask = NSEventMaskFlagsChanged | NSEventMaskKeyDown | NSEventMaskKeyUp
-        return (NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(mask, handle),   # other apps
-                NSEvent.addLocalMonitorForEventsMatchingMask_handler_(mask, lambda e: (handle(e), e)[1]))  # Murmur
+        return (NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(mask, lambda e: handle(e, True)),
+                NSEvent.addLocalMonitorForEventsMatchingMask_handler_(mask, lambda e: (handle(e, False), e)[1]))
     from pynput import keyboard
 
     def name(key):
@@ -207,8 +279,8 @@ def watch_keys(on_key):
             return "z"
         return getattr(key, "name", None)
 
-    listener = keyboard.Listener(on_press=lambda k: name(k) and on_key(name(k), True),
-                                 on_release=lambda k: name(k) and on_key(name(k), False))
+    listener = keyboard.Listener(on_press=lambda k: name(k) and on_key(name(k), True, True),
+                                 on_release=lambda k: name(k) and on_key(name(k), False, True))
     listener.start()
     return listener
 

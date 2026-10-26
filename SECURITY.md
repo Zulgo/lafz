@@ -11,7 +11,11 @@ What Murmur stores, all on your own computer:
 To learn from corrections, Murmur re-reads the text field it just pasted into, for at most 90 seconds, and only compares
 the passage around its own pasted text. It never reads password fields and never stores the field's content.
 
-On macOS it asks for Microphone, Accessibility and Input Monitoring permissions, which it needs to record, watch the hotkey and paste text. It only reacts to its own hotkey and the undo shortcut.
+Murmur's window is a small web page served only on 127.0.0.1 (this computer). Every request must carry a secret token
+created at launch, and requests addressed to any other host name are refused, so websites and other computers can't
+reach it.
+
+On macOS it asks for Microphone and Accessibility permissions (Input Monitoring only if needed), which it needs to record, watch the hotkey and paste text. It only reacts to its own hotkey and the undo shortcut.
 
 ## Reporting a vulnerability
 
