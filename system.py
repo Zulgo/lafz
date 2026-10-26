@@ -184,6 +184,15 @@ def clipboard_restore(snapshot):
         board.writeObjects_(restored)
 
 
+def set_dock_icon(path):
+    """macOS: Murmur runs as a Python process, so set the bear as its Dock icon (otherwise Python's icon shows)."""
+    if MAC:
+        from AppKit import NSApplication, NSImage
+        image = NSImage.alloc().initWithContentsOfFile_(path)
+        if image is not None:
+            NSApplication.sharedApplication().setApplicationIconImage_(image)
+
+
 def set_show_in_dock(show):
     """macOS: show Murmur in the Dock, or run from the menu bar only."""
     if MAC:

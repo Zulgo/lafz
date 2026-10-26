@@ -38,6 +38,7 @@ cat > "$SRC" <<'C'
 #include <fcntl.h>
 #include <spawn.h>
 #include <sys/wait.h>
+#include <unistd.h>
 extern char **environ;
 static char py[4096], script[4096], logp[4096];
 static posix_spawn_file_actions_t fa;
@@ -62,7 +63,14 @@ static pid_t start_murmur(void) {
 int main(void) {
     @autoreleasepool {
         snprintf(py, sizeof py, "%s/.venv/bin/Murmur", PROJ);
-        if (access(py, X_OK) != 0) snprintf(py, sizeof py, "%s/.venv/bin/python", PROJ);
+        if (access(py, X_OK) != 0) {
+            /* Python started via a link named "Murmur" is shown as "Murmur" in the Dock instead of "python3.12".
+               Re-create the link if a dependency update removed it. */
+            char venv_bin[4096];
+            snprintf(venv_bin, sizeof venv_bin, "%s/.venv/bin", PROJ);
+            if (chdir(venv_bin) == 0) symlink("python", "Murmur");
+            if (access(py, X_OK) != 0) snprintf(py, sizeof py, "%s/.venv/bin/python", PROJ);
+        }
         snprintf(script, sizeof script, "%s/app.py", PROJ);
         snprintf(logp, sizeof logp, "%s/Library/Logs/Murmur.log", getenv("HOME"));
         unsetenv("VIRTUAL_ENV");

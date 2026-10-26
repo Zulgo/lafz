@@ -81,6 +81,7 @@ class Murmur:
             self.menubar = menubar.MenuBar(on_open=self.show_window, on_settings=lambda: self.show_window("settings"),
                                            on_undo=lambda: self.events.put(("undo",)), on_quit=self.quit)
             system.set_show_in_dock(self.settings["show_in_dock"])
+            system.set_dock_icon(os.path.join(HERE, "assets", "icon_1024.png"))
         self.ui = webui.Server(lambda action: self.events.put(("ui", action)))
         system.save_json("instance.json", {"port": self.ui.port, "token": self.ui.token, "pid": os.getpid()})
         if MAC:
