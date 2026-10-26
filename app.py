@@ -49,7 +49,7 @@ class Murmur:
         self.root.geometry("520x640")
         self.root.minsize(440, 520)
         self.events, self.jobs = queue.Queue(), queue.Queue()
-        # All model work (load, transcribe, preview, compare) runs on this one thread: MLX models such as Parakeet
+        # All model work (load, transcribe, preview, compare) runs on this one thread: some MLX models
         # only work on the thread that loaded them, and it also serializes access to the model.
         self.stt_thread = ThreadPoolExecutor(max_workers=1, thread_name_prefix="stt")
         self.stt, self.stt_error = None, ""
@@ -255,7 +255,7 @@ class Murmur:
         self.tabs.add(f, text="Dictionary")
         ttk.Label(f, text="Names and words Murmur should get right", style="Status.TLabel").pack(anchor="w")
         ttk.Label(f, text="Add one per line (e.g. Dustin, Kubernetes, Priya). If a word keeps coming out wrong, "
-                          "add a fix like:  dust in -> Dustin\nWhisper uses both; Parakeet uses only the fixes.",
+                          "add a fix like:  dust in -> Dustin",
                   style="Hint.TLabel", wraplength=460).pack(
             anchor="w", pady=(2, 8))
         self.dict_text = tk.Text(f, wrap="word", font=("", 13), relief="flat", padx=6, pady=6, **self.text_colors)

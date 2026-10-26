@@ -16,7 +16,7 @@
 
 Cloud dictation tools send your voice to someone else's servers. Murmur runs entirely on your machine:
 
-- **Speech recognition** with OpenAI Whisper or NVIDIA Parakeet (open models, running locally)
+- **Speech recognition** with OpenAI Whisper (open-source, running locally)
 - **Speech detection** with Silero VAD, so silence, clicks, breathing and fan noise don't become fake text
 - **Optional AI cleanup** with a small local language model through [Ollama](https://ollama.com): removes "um", "uh" and stutters and fixes punctuation, without rewording what you said
 
@@ -32,7 +32,7 @@ After the one-time model downloads, Murmur works fully offline.
 - **Personal dictionary:** teach it names and jargon, and fix words it keeps getting wrong (`dust in -> Dustin`).
 - **Searchable history:** every dictation, with time and app, one click to copy.
 - **Undo:** one shortcut removes the last paste.
-- **Model comparison:** run every speech model on your own recent recordings and pick the most accurate one for your voice.
+- **Model comparison:** run both Whisper models on your own recent recordings and pick the better one for your voice.
 - **Native feel on macOS:** a frosted-glass recording indicator, a menu bar icon and a Setup checklist for permissions.
 
 ## Requirements
@@ -134,7 +134,7 @@ Kubernetes
 dust in -> Dustin
 ```
 
-Whisper uses both the word list and the fixes. Parakeet uses only the fixes.
+Whisper is given the word list as a hint, and the fixes are applied to its output.
 
 ### Choosing a speech model
 
@@ -142,9 +142,8 @@ Whisper uses both the word list and the fixes. Parakeet uses only the fixes.
 | --- | --- | --- |
 | Whisper Accurate (large-v3-turbo) | ~1.5 s per sentence | Names and technical words (works with the Dictionary) |
 | Whisper Fast (small.en) | ~0.5 s | Older or busy machines |
-| Parakeet (NVIDIA, English) | ~0.4 s | Speed; hears filler words faithfully |
 
-Not sure? Dictate a few normal sentences, then use **Settings → Compare models on my recent recordings**. It runs every model on your own voice and lets you switch with one click.
+Not sure? Dictate a few normal sentences, then use **Settings → Compare models on my recent recordings**. It runs both models on your own voice and lets you switch with one click.
 
 ## Privacy
 
@@ -183,7 +182,7 @@ Start Ollama (`brew services start ollama` on Mac, or open the Ollama app), or c
 <details>
 <summary><b>It's slow</b></summary>
 
-On 8 GB Macs, try the **Parakeet** model and close memory-heavy apps. The first dictation after launch is slower while models load.
+On 8 GB Macs, try **Whisper Fast** (Settings → Speech model) and close memory-heavy apps. The first dictation after launch is slower while models load.
 </details>
 
 <details>
@@ -195,10 +194,10 @@ Mac: `~/Library/Logs/Murmur.log`. Windows: `murmur.log` in your user folder.
 ## How it works
 
 ```
- hotkey ──► microphone ──► Silero VAD ──► Whisper / Parakeet ──► dictionary fixes ──► cleanup ──► paste
- (hold)     (any rate,      (keeps only     (speech-to-text,       (your word list)      (rules +     (into the
-             resampled)      real speech)    on-device)                                   local LLM)    app you
-                                                                                                        were in)
+ hotkey ──► microphone ──► Silero VAD ──► Whisper ──► dictionary ──► cleanup ──► paste
+ (hold)     (any rate,     (keeps only    (on-device  (your fixes)   (rules +    (into the app
+             resampled)     real speech)   speech to                  local LLM)  you were in)
+                                           text)
 ```
 
 The local LLM's output is only accepted when it stays very close to what you said. If it rewords things, Murmur keeps your words and tells you.

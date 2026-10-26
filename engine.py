@@ -1,4 +1,4 @@
-"""Murmur speech engine: speech detection, speech-to-text (Whisper / Parakeet), dictionary and cleanup. No UI code."""
+"""Murmur speech engine: speech detection, speech-to-text (Whisper), dictionary and cleanup. No UI code."""
 import difflib, gc, json, os, platform, re, sys, urllib.request
 
 import numpy as np
@@ -26,16 +26,14 @@ REWRITE_PROMPTS = {
                "Keep all facts. Do not add anything new. Reply with the bullet points only.\n\nText: ",
 }
 MODELS = {"whisper-accurate": "Whisper Accurate (best with Dictionary words)",
-          "whisper-fast": "Whisper Fast (smaller)",
-          "parakeet": "Parakeet (NVIDIA, English, fast)"}
+          "whisper-fast": "Whisper Fast (smaller)"}
 MLX_WHISPER = {"whisper-fast": "mlx-community/whisper-small.en-mlx",
                "whisper-accurate": "mlx-community/whisper-large-v3-turbo"}
-PARAKEET_MLX = "mlx-community/parakeet-tdt-0.6b-v2"
-PARAKEET_ONNX = "nemo-parakeet-tdt-0.6b-v2"
 
 
 def model_key(choice):
-    """Accepts older setting values ('accurate' / 'fast')."""
+    """Accepts older setting values ('accurate' / 'fast'); anything else (e.g. the removed 'parakeet')
+    falls back to Whisper Accurate."""
     return {"accurate": "whisper-accurate", "fast": "whisper-fast"}.get(choice, choice if choice in MODELS else
                                                                         "whisper-accurate")
 
@@ -55,10 +53,8 @@ def level(block):
 
 
 def load_stt(choice="whisper-accurate"):
-    """Return stt(audio, prompt="") -> text for float32 16 kHz audio. Parakeet ignores the prompt."""
+    """Return stt(audio, prompt="") -> text for float32 16 kHz audio."""
     choice = model_key(choice)
-    if choice == "parakeet":
-        return load_parakeet()
     if APPLE_SILICON:
         import mlx_whisper
         repo = MLX_WHISPER[choice]
@@ -89,29 +85,6 @@ def load_stt(choice="whisper-accurate"):
     except Exception as e:
         print(f"GPU unavailable, using CPU: {e}")
     return make(cuda=False)
-
-
-def load_parakeet():
-    if APPLE_SILICON:
-        import mlx.core as mx
-        from parakeet_mlx import from_pretrained
-        from parakeet_mlx.audio import get_logmel
-        model = from_pretrained(PARAKEET_MLX)
-
-        def run(a, prompt=""):
-            if len(a) < SR // 10:
-                return ""
-            # float32 on purpose: parakeet-mlx's mel code breaks on bfloat16 input
-            mel = get_logmel(mx.array(a, dtype=mx.float32), model.preprocessor_config)
-            return model.generate(mel)[0].text.strip()
-    else:
-        import onnx_asr
-        model = onnx_asr.load_model(PARAKEET_ONNX, quantization="int8")
-
-        def run(a, prompt=""):
-            return model.recognize(a, sample_rate=SR).strip() if len(a) >= SR // 10 else ""
-    run(np.zeros(SR, dtype="float32"))  # download + warm up
-    return run
 
 
 def free_memory():
