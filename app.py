@@ -16,6 +16,7 @@ import numpy as np
 import sounddevice as sd
 
 import engine
+import learning
 import system
 from system import MAC
 
@@ -31,7 +32,7 @@ MAX_RECORDING = 10 * 60  # seconds; stops a hands-free recording that was forgot
 DEFAULTS = {
     "hotkey": "alt_r" if MAC else "ctrl_r", "mic": "", "model": "whisper-accurate", "style": "clean",
     "live_preview": True, "sounds": True, "auto_paste": True, "start_minimized": False, "start_at_login": False,
-    "keep_recordings": True,
+    "keep_recordings": True, "learn": True,
     "dictionary": "# One word per line, or 'wrong -> right'\n",
     "app_rules": ("# App name = style (raw, clean, formal, bullets)\nTerminal = raw\niTerm2 = raw\n" if MAC else
                   "# App name = style (raw, clean, formal, bullets)\nWindowsTerminal = raw\ncmd = raw\n"),
@@ -44,6 +45,8 @@ class Murmur:
         self.settings = {**DEFAULTS, **system.load_json("settings.json", {})}
         self.settings["model"] = engine.model_key(self.settings["model"])
         self.history = system.load_json("history.json", [])
+        self.learner = learning.Learner()
+        self.watch, self.latest_original = None, ""  # watch: a pasted passage being checked for corrections
         self.root = tk.Tk()
         self.root.title("Murmur")
         self.root.geometry("520x640")
@@ -146,7 +149,7 @@ class Murmur:
         self.build_settings_tab()
         self.build_dictionary_tab()
         self.build_setup_tab()
-        self.tabs.bind("<<NotebookTabChanged>>", lambda _: self.refresh_setup())
+        self.tabs.bind("<<NotebookTabChanged>>", lambda _: (self.refresh_setup(), self.render_learned()))
 
     def build_dictate_tab(self):
         f = ttk.Frame(self.tabs, padding=12)
@@ -236,7 +239,8 @@ class Murmur:
                                 lambda: system.set_start_at_login(self.settings["start_at_login"])),
                                ("keep_recordings", f"Keep my last {system.KEEP_RECORDINGS} recordings on this "
                                                    "computer (for model comparison)",
-                                lambda: None if self.settings["keep_recordings"] else system.clear_recordings())):
+                                lambda: None if self.settings["keep_recordings"] else system.clear_recordings()),
+                               ("learn", "Learn from my corrections and vocabulary (stays on this computer)", None)):
             var = self.bind_var(tk.BooleanVar(value=self.settings[key]), key, cb)
             ttk.Checkbutton(f, text=label, variable=var).pack(anchor="w", pady=2)
         ttk.Separator(f).pack(fill="x", pady=10)
@@ -258,12 +262,93 @@ class Murmur:
                           "add a fix like:  dust in -> Dustin",
                   style="Hint.TLabel", wraplength=460).pack(
             anchor="w", pady=(2, 8))
-        self.dict_text = tk.Text(f, wrap="word", font=("", 13), relief="flat", padx=6, pady=6, **self.text_colors)
+        self.dict_text = tk.Text(f, height=7, wrap="word", font=("", 13), relief="flat", padx=6, pady=6,
+                                 **self.text_colors)
         self.dict_text.insert("1.0", self.settings["dictionary"])
-        self.dict_text.pack(fill="both", expand=True)
+        self.dict_text.pack(fill="x")
         self.dict_saved = ttk.Label(f, text="", style="Small.TLabel")
         self.dict_saved.pack(anchor="e")
         self.dict_text.bind("<KeyRelease>", lambda _: self.save_dictionary())
+        head = ttk.Frame(f)
+        head.pack(fill="x", pady=(10, 0))
+        ttk.Label(head, text="Learned automatically", style="Status.TLabel").pack(side="left")
+        ttk.Button(head, text="Reset", command=self.reset_learning).pack(side="right")
+        ttk.Label(f, text="From words you correct after dictating (the same fix twice) and names you use often. "
+                          "Stored only on this computer.", style="Hint.TLabel", wraplength=460).pack(anchor="w")
+        self.learned_rows = ttk.Frame(f)
+        self.learned_rows.pack(fill="both", expand=True, pady=(6, 0))
+        self.render_learned()
+
+    def render_learned(self):
+        for w in self.learned_rows.winfo_children():
+            w.destroy()
+        fixes, hints = self.learner.fixes(), [h for h in self.learner.hints() if h not in {r for _, r in
+                                                                                             self.learner.fixes()}]
+        if not fixes and not hints:
+            ttk.Label(self.learned_rows, text="Nothing yet. Just keep dictating and fix mistakes as usual.",
+                      style="Hint.TLabel").pack(anchor="w")
+        for wrong, right in fixes[:20]:
+            row = ttk.Frame(self.learned_rows)
+            row.pack(fill="x", pady=1)
+            ttk.Label(row, text=f"{wrong}  →  {right}").pack(side="left")
+            ttk.Button(row, text="Forget", command=lambda a=wrong, b=right: (self.learner.forget_fix(a, b),
+                                                                             self.render_learned())).pack(side="right")
+        if hints:
+            row = ttk.Frame(self.learned_rows)
+            row.pack(fill="x", pady=(6, 0))
+            ttk.Label(row, text="Words: " + ", ".join(hints[:20]), wraplength=360).pack(side="left")
+            ttk.Button(row, text="Forget words", command=lambda: ([self.learner.forget_word(h) for h in hints],
+                                                                   self.render_learned())).pack(side="right")
+
+    def reset_learning(self):
+        self.learner.reset()
+        self.render_learned()
+
+    def vocabulary(self):
+        """(words, fixes) for Whisper: the user's Dictionary plus what Murmur learned. Main thread only."""
+        words, fixes = engine.parse_dictionary(self.settings["dictionary"])
+        if self.settings["learn"]:
+            words = words + self.learner.hints()
+            fixes = self.learner.fixes() + fixes  # the user's own fixes are applied last, so they win
+        return words, fixes
+
+    # ---- learning from corrections ----
+    def start_watch(self, pasted):
+        """Remember the field Murmur just pasted into, to see later whether the user corrected the text."""
+        found = system.focused_text_field()
+        if found is None:
+            return
+        self.watch = {"field": found[0], "cursor": found[1], "pasted": pasted, "last": None,
+                      "until": time.monotonic() + 90}
+        self.root.after(10_000, self.check_watch, self.watch)
+
+    def check_watch(self, watch, final=False):
+        """Learn once the edit has settled (unchanged between two checks), at the next dictation, or after 90 s."""
+        if watch is not self.watch:
+            return
+        text = system.read_field(watch["field"])
+        region = learning.locate(watch["pasted"], text, near=watch["cursor"]) if text else None
+        if region is None:  # field closed, cleared or the passage was deleted: nothing to learn
+            self.watch = None
+            return
+        changed = region != watch["pasted"]
+        if changed and (final or region == watch["last"]):
+            self.learn_from(watch["pasted"], region)
+            self.watch = None
+        elif final or time.monotonic() > watch["until"]:
+            if not changed:
+                self.learner.observe_text(region)  # kept as is: the user accepted these words
+            self.watch = None
+        else:
+            watch["last"] = region
+            self.root.after(10_000, self.check_watch, watch)
+
+    def learn_from(self, original, corrected):
+        new = self.learner.observe_correction(original, corrected)
+        self.learner.observe_text(corrected)
+        if new:
+            self.set_status("Learned: " + ", ".join(f"{a} → {b}" for a, b in new))
+        self.render_learned()
 
     def save_dictionary(self):
         self.save_setting("dictionary", self.dict_text.get("1.0", "end").rstrip() + "\n")
@@ -408,6 +493,7 @@ class Murmur:
     def set_latest(self, text):
         self.text.delete("1.0", "end")
         self.text.insert("1.0", text)
+        self.latest_original = text
 
     def copy(self, text, msg=None):
         self.root.clipboard_clear()
@@ -417,7 +503,11 @@ class Murmur:
             self.status.config(text=msg)
 
     def copy_latest(self):
-        self.copy(self.text.get("1.0", "end").strip())
+        edited = self.text.get("1.0", "end").strip()
+        if self.settings["learn"] and self.latest_original and edited != self.latest_original:
+            self.learn_from(self.latest_original, edited)  # corrected in Murmur's own box
+            self.latest_original = edited
+        self.copy(edited)
         self.copy_btn.config(text="Copied ✓")
         self.root.after(1200, lambda: self.copy_btn.config(text="Copy"))
 
@@ -624,11 +714,11 @@ class Murmur:
         out.tag_configure("model", foreground="gray")
         buttons = ttk.Frame(frame)
         buttons.pack(fill="x", pady=(8, 0))
-        threading.Thread(target=self.run_compare, args=(recs, win, status, out, buttons), daemon=True).start()
+        prompt = engine.whisper_prompt(self.vocabulary()[0])
+        threading.Thread(target=self.run_compare, args=(recs, win, status, out, buttons, prompt), daemon=True).start()
 
-    def run_compare(self, recs, win, status, out, buttons):
+    def run_compare(self, recs, win, status, out, buttons, prompt):
         audio = [system.load_recording(r) for r in recs]
-        prompt = engine.whisper_prompt(engine.parse_dictionary(self.settings["dictionary"])[0])
         results, timing = {}, {}
         run_on_stt = lambda fn, *a: self.stt_thread.submit(fn, *a).result()
         for key, name in engine.MODELS.items():
@@ -738,6 +828,8 @@ class Murmur:
 
     # ---- recording ----
     def start_recording(self):
+        if self.watch is not None:
+            self.check_watch(self.watch, final=True)
         self.target, self.frames, self.preview, self.discard = system.frontmost(), [], "", False
         self.session += 1
 
@@ -768,7 +860,7 @@ class Murmur:
         style = self.style_for(self.target)
         self.set_status("Transcribing…", "transcribing")
         self.jobs.put((np.concatenate(self.frames), self.rate, style, self.paste_var.get(), self.target,
-                       self.settings["dictionary"]))
+                       *self.vocabulary()))
 
     def style_for(self, target):
         """Per-app rule if one matches the app name, else the chosen style."""
@@ -797,7 +889,7 @@ class Murmur:
         if self.settings["live_preview"] and not self.preview_busy and self.frames and self.stt is not None:
             self.preview_busy = True
             # Last 10 s only: keeps each preview short, so it never holds up the final transcription for long.
-            prompt = engine.whisper_prompt(engine.parse_dictionary(self.settings["dictionary"])[0])
+            prompt = engine.whisper_prompt(self.vocabulary()[0])
             threading.Thread(target=self.run_preview, args=(self.tail_audio(10), self.rate, prompt, session),
                              daemon=True).start()
         self.root.after(1000, self.schedule_preview, session)
@@ -824,13 +916,12 @@ class Murmur:
         while True:
             self.process(*self.jobs.get())
 
-    def process(self, raw, rate, style, auto_paste, target, dictionary):
+    def process(self, raw, rate, style, auto_paste, target, words, fixes):
         try:
             audio, voiced_s = engine.prepare(engine.resample(raw, rate))
             if audio is None:
                 self.events.put(("failed", "Didn't hear any speech — check the microphone in Settings"))
                 return
-            words, fixes = engine.parse_dictionary(dictionary)
             text = self.transcribe(audio, engine.whisper_prompt(words))
             if engine.is_hallucination(text, voiced_s):
                 self.events.put(("failed", "No speech detected"))
@@ -864,6 +955,9 @@ class Murmur:
             system.refocus(target)
             self.root.after(150, lambda: system.send_shortcut("v"))
             self.last_paste = target
+            if self.settings["learn"]:
+                self.watch = None
+                self.root.after(600, self.start_watch, text)
 
     # ---- global keyboard (system.watch_keys: main thread on Mac, pynput thread on Windows) ----
     def on_key(self, name, down):

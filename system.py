@@ -120,6 +120,36 @@ def frontmost():
     return None
 
 
+def focused_text_field():
+    """macOS: (field, cursor_position) for the focused editable text field in any app, or None.
+    Password fields are never read. Used only to notice how the user corrects text Murmur pasted."""
+    if not MAC:
+        return None
+    from ApplicationServices import (AXUIElementCopyAttributeValue, AXUIElementCreateSystemWide, AXValueGetValue,
+                                     kAXFocusedUIElementAttribute, kAXSelectedTextRangeAttribute,
+                                     kAXSubroleAttribute, kAXValueCFRangeType)
+    err, field = AXUIElementCopyAttributeValue(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute, None)
+    if err or field is None:
+        return None
+    err, subrole = AXUIElementCopyAttributeValue(field, kAXSubroleAttribute, None)
+    if subrole == "AXSecureTextField" or read_field(field) is None:
+        return None
+    cursor = None
+    err, selection = AXUIElementCopyAttributeValue(field, kAXSelectedTextRangeAttribute, None)
+    if not err and selection is not None:
+        ok, rng = AXValueGetValue(selection, kAXValueCFRangeType, None)
+        if ok:
+            cursor = rng[0]  # (location, length)
+    return field, cursor
+
+
+def read_field(field):
+    """Current text of a field from focused_text_field(), or None if it's gone or not text."""
+    from ApplicationServices import AXUIElementCopyAttributeValue, kAXValueAttribute
+    err, value = AXUIElementCopyAttributeValue(field, kAXValueAttribute, None)
+    return value if not err and isinstance(value, str) else None
+
+
 def refocus(target):
     if target is None:
         return

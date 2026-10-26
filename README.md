@@ -30,6 +30,7 @@ After the one-time model downloads, Murmur works fully offline.
 - **Writing styles:** Raw (exact words), Clean (fillers removed), Formal (polite rewrite), Bullet points.
 - **Per-app styles:** for example, raw text in your terminal and formal text in Mail.
 - **Personal dictionary:** teach it names and jargon, and fix words it keeps getting wrong (`dust in -> Dustin`).
+- **Learns from you, locally:** when you correct the same word twice, Murmur fixes it automatically from then on, and it learns the names you use.
 - **Searchable history:** every dictation, with time and app, one click to copy.
 - **Undo:** one shortcut removes the last paste.
 - **Model comparison:** run both Whisper models on your own recent recordings and pick the better one for your voice.
@@ -136,6 +137,18 @@ dust in -> Dustin
 
 Whisper is given the word list as a hint, and the fixes are applied to its output.
 
+### Learning from your corrections
+
+Murmur gets better the more you use it, without sending anything anywhere:
+
+- **Corrections:** after a dictation is pasted, Murmur briefly checks the same text field again (for up to 90 seconds, or until your next dictation). If you changed a word, for example `dust in` to `Dustin`, it notes the pair. When you make **the same correction twice**, it becomes an automatic fix. One-off rewrites (changing "Friday" to "Monday") aren't learned, because they're not recognition mistakes.
+- **Vocabulary:** names and unusual words in text you've kept or corrected (`Priya`, `iOS`, `GPT4`) are given to Whisper as spelling hints.
+- **Edits in Murmur's window** count too: fix the text in the *Latest* box and press Copy.
+
+See and remove anything it learned in the **Dictionary** tab, under *Learned automatically*. Turn learning off in **Settings**.
+
+Murmur doesn't retrain the speech model; the model stays exactly as downloaded. Learning works through fixes and hints, which is fast, private and instantly undoable.
+
 ### Choosing a speech model
 
 | Model | Speed (M1) | Best for |
@@ -151,6 +164,7 @@ Not sure? Dictate a few normal sentences, then use **Settings → Compare models
 - The AI cleanup talks only to Ollama running on your own machine (`localhost`).
 - History and settings are stored in `~/Library/Application Support/Murmur` (Mac) or `%APPDATA%\Murmur` (Windows).
 - Murmur keeps your **last 10 recordings** locally so you can compare models. Turn this off in Settings; that also deletes them.
+- **Learning** reads only the few words around the text Murmur itself just pasted, never anything else in the field, and never password fields. It stores only word pairs and counts (`learning.json`). Turn it off in Settings.
 - There is no telemetry, analytics or account.
 
 ## Troubleshooting
@@ -208,6 +222,7 @@ The local LLM's output is only accepted when it stays very close to what you sai
 | --- | --- |
 | `app.py` | Main app: window, hotkey state machine, recording, processing queue |
 | `engine.py` | Speech detection, speech-to-text models, dictionary, cleanup |
+| `learning.py` | Local adaptive learning from corrections and vocabulary |
 | `system.py` | OS integration: focus, keystrokes, sounds, permissions, login item, storage |
 | `pill.py` | macOS frosted-glass recording indicator |
 | `menubar.py` | macOS menu bar icon and menu |
