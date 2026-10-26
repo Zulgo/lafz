@@ -64,7 +64,7 @@ function render() {
   renderLive();
   renderHero();
   if (changed("stats", S.stats)) renderStats();
-  if (changed("latest", S.latest)) setField($("latest"), S.latest);
+  if (changed("latest", S.latest) && !setField($("latest"), S.latest)) delete seen.latest;  // retry after editing
   if (changed("style", [S.settings.style, S.options.styles])) renderStyles();
   if (changed("quick", [S.settings.auto_paste, S.settings.voice_commands, S.settings.learn])) renderQuickToggles();
   if (changed("history", S.history)) { renderRecent(); renderHistory(); }
@@ -76,8 +76,14 @@ function render() {
   if (S.toast && changed("toast", S.toast.id)) toast(S.toast.text);
 }
 
+// Update a text box from the app, unless the user has typed into it since it was last set (never lose their edits).
+// Focus alone isn't enough to block: a box clicked earlier keeps focus and would never show new dictations.
+const lastSet = {};
 function setField(el, value) {
-  if (document.activeElement !== el) el.value = value ?? "";
+  const edited = el.id in lastSet && el.value !== lastSet[el.id];
+  if (edited && document.activeElement === el) return false;
+  el.value = lastSet[el.id] = value ?? "";
+  return true;
 }
 
 function hotkeyName() {
@@ -281,7 +287,11 @@ function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTi
 $("dictionary").addEventListener("input", debounce((e) => api({ type: "save_dictionary", text: e.target.value }), 600));
 $("rules").addEventListener("input", debounce((e) => api({ type: "save_rules", text: e.target.value }), 600));
 $("search").addEventListener("input", () => S && renderHistory());
-$("copy-latest").addEventListener("click", () => api({ type: "copy_latest", text: $("latest").value }));
+$("copy-latest").addEventListener("click", () => {
+  lastSet.latest = $("latest").value;  // copied = saved, so the next dictation may replace it
+  api({ type: "copy_latest", text: $("latest").value });
+});
+$("latest").addEventListener("blur", () => S && render());
 let clearArmed = null;  // deleting history takes two clicks, so it can't happen by accident
 $("clear-history").addEventListener("click", (e) => {
   if (!S || !S.history.length) return;
