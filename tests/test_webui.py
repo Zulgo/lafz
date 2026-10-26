@@ -54,3 +54,11 @@ def test_serves_interface_but_nothing_else(server):
     assert request(server, "/")[0] == 200
     assert request(server, "/../settings.json")[0] in (403, 404)
     assert request(server, "/app.py")[0] == 404
+
+
+def test_page_from_before_a_restart_gets_state_immediately(server):
+    import time
+    server.publish({"n": 1})
+    t = time.time()
+    status, body = request(server, "/api/state?since=999", token=server.token)  # version from the previous run
+    assert status == 200 and json.loads(body)["state"] == {"n": 1} and time.time() - t < 2

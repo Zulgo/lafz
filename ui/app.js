@@ -73,7 +73,7 @@ function render() {
   if (changed("settings", [S.settings, S.options])) renderSettings();
   if (changed("setup", S.setup)) renderSetup();
   if (changed("compare", S.compare)) renderCompare();
-  if (S.toast && changed("toast", S.toast.id)) toast(S.toast.text);
+  if (S.toast && changed("toast", S.toast.id) && Date.now() / 1000 - S.toast.id < 5) toast(S.toast.text);  // not stale ones
 }
 
 // Update a text box from the app, unless the user has typed into it since it was last set (never lose their edits).
@@ -171,7 +171,7 @@ function itemHTML(h, actions = true) {
     (h.command ? `<span class="chip cmd" title="${esc(h.command)}">Command</span>` : "") +
     `</div><div class="item-text">${esc(h.text)}</div></div>` +
     `<div class="item-actions"><button class="icon-btn" title="Copy" data-copy="${h.i}">${icon.copy}</button>` +
-    (actions ? `<button class="icon-btn" title="Delete" data-delete="${h.i}">${icon.trash}</button>` : "") + `</div></div>`;
+    (actions ? `<button class="icon-btn" title="Delete" data-delete="${h.time}">${icon.trash}</button>` : "") + `</div></div>`;
 }
 
 function empty(text) {
@@ -311,7 +311,7 @@ document.addEventListener("click", (e) => {
   else if (d.style) set("style", d.style);
   else if (d.toggle) { el.querySelector(".switch").classList.toggle("on"); set(d.toggle, !S.settings[d.toggle]); }
   else if (d.copy !== undefined) api({ type: "copy", text: S.history.find((h) => h.i === +d.copy).text });
-  else if (d.delete !== undefined) api({ type: "delete_history", i: +d.delete });
+  else if (d.delete !== undefined) api({ type: "delete_history", time: +d.delete });
   else if (d.forgetFix !== undefined) api({ type: "forget_fix", wrong: d.forgetFix, right: d.right });
   else if (d.forgetWord !== undefined) api({ type: "forget_word", word: d.forgetWord });
   else if (d.setup) api({ type: "setup", id: d.setup });

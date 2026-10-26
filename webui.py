@@ -38,7 +38,8 @@ class Server:
 
     def wait(self, since, timeout=25):
         with self.cond:
-            self.cond.wait_for(lambda: self.version > since, timeout)
+            if since <= self.version:  # a newer 'since' comes from a page that outlived an app restart: answer now
+                self.cond.wait_for(lambda: self.version > since, timeout)
             return self.version, self.state
 
 

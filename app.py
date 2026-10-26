@@ -68,7 +68,7 @@ class Murmur:
         self.recording, self.state, self.session = False, "idle", 0
         self.press_t, self.ignore_up, self.tap_timer, self.discard = 0.0, False, None, False
         self.target, self.last_paste, self.preview, self.preview_busy = None, None, "", False
-        self.command, self.selection = False, ""
+        self.command, self.selection, self.busy = False, "", 0  # busy: dictations still being processed
         self.hotkey_down, self.mods, self.undo_armed, self.keys_seen = False, set(), False, False
         self.hud_visible, self.ollama_pulling = False, False
         self.status_text, self.toast = "Loading speech model…", None
@@ -87,6 +87,7 @@ class Murmur:
             import macwindow
             self.window = macwindow.MainWindow(self.ui.url)
             self.root.createcommand("::tk::mac::ReopenApplication", self.show_window)  # Dock icon click
+            self.root.createcommand("::tk::mac::Quit", self.quit)  # Cmd+Q and the Dock's Quit
         self.refresh_mics()
         self.refresh_setup()
         self.root.after(50, self.poll)
@@ -117,11 +118,15 @@ class Murmur:
                 webbrowser.open(url)
 
     def quit(self):
-        try:
-            os.remove(os.path.join(system.config_dir(), "instance.json"))
-        except OSError:
-            pass
-        self.root.destroy()
+        self.root.destroy()  # the instance file is removed when mainloop returns (see __main__)
+
+    def forget_instance(self):
+        """Remove instance.json if it's ours, so a later launch doesn't try to hand off to a dead copy."""
+        if (system.load_json("instance.json", {}) or {}).get("pid") == os.getpid():
+            try:
+                os.remove(os.path.join(system.config_dir(), "instance.json"))
+            except OSError:
+                pass
 
     # ================= settings =================
     def save_setting(self, key, value):
@@ -211,7 +216,7 @@ class Murmur:
             "learned": {"fixes": fixes[:40],
                         "words": [w for w in self.learner.hints() if w not in {r for _, r in fixes}][:40]},
             "setup": self.setup, "setup_ok": not any(i["ok"] is False and i["required"] for i in self.setup),
-            "compare": self.compare, "recordings": len(system.list_recordings()),
+            "compare": self.compare,
         }
 
     # ================= actions from the interface (Tk thread) =================
@@ -231,10 +236,9 @@ class Murmur:
             self.notify("Copied")
         elif kind == "undo":
             self.ev_undo()
-        elif kind == "delete_history":
-            if 0 <= action["i"] < len(self.history):
-                del self.history[action["i"]]
-                system.save_json("history.json", self.history)
+        elif kind == "delete_history":  # by time stamp: positions shift when a new dictation arrives
+            self.history = [h for h in self.history if h["time"] != action["time"]]
+            system.save_json("history.json", self.history)
         elif kind == "clear_history":
             self.history = []
             system.save_json("history.json", self.history)
@@ -524,7 +528,7 @@ class Murmur:
             self.finish_recording()
         if self.recording and self.hud_mode != "listening":
             self.hud_show("listening")
-        if (self.settings["memory_saver"] and self.stt_status == "ready" and not self.recording and self.jobs.empty()
+        if (self.settings["memory_saver"] and self.stt_status == "ready" and not self.recording and not self.busy
                 and now - self.last_used > IDLE_UNLOAD):
             self.stt_status = "sleeping"
             self.stt_thread.submit(self.unload_model)
@@ -593,7 +597,7 @@ class Murmur:
         missing = [i["name"] for i in self.setup if i["ok"] is False and i["required"]]
         if missing:
             self.set_status("Setup needed: " + ", ".join(missing))
-        elif not self.recording and not self.jobs.qsize():
+        elif not self.recording and not self.busy:  # don't hide "Transcribing…" of a dictation still in progress
             self.set_status("Ready")
 
     def ev_status(self, msg, hud):
@@ -707,14 +711,28 @@ class Murmur:
         def callback(data, *_):
             self.frames.append(data[:, 0].copy())
             self.level = engine.level(data[:, 0])
-        self.stream = sd.InputStream(device=self.mic_index(), channels=1, dtype="float32", callback=callback)
+        self.stream = self.open_microphone(callback)
         self.rate = int(self.stream.samplerate)
-        self.stream.start()
         self.recording, self.rec_start = True, time.monotonic()
         self.set_status(("Command: say what to do with the selected text" if self.selection else
                          "Command: say what to write") if command else "Listening…", "listening")
         self.sound("start")
         self.root.after(1000, self.schedule_preview, self.session)
+
+    def open_microphone(self, callback):
+        """Start recording. PortAudio reads the device list once at startup, so after AirPods or a headset connect or
+        disconnect, opening the microphone fails; re-read the devices and try once more."""
+        for attempt in range(2):
+            try:
+                stream = sd.InputStream(device=self.mic_index(), channels=1, dtype="float32", callback=callback)
+                stream.start()
+                return stream
+            except sd.PortAudioError as e:
+                if attempt:
+                    raise RuntimeError("couldn't open the microphone — check that it's connected") from e
+                sd._terminate()
+                sd._initialize()
+                self.refresh_mics()
 
     def stop_stream(self):
         if self.stream is not None:
@@ -732,6 +750,7 @@ class Murmur:
             return self.set_status("Cancelled")
         style = self.style_for(self.target)
         self.set_status("Transcribing…", "transcribing")
+        self.busy += 1
         self.jobs.put((np.concatenate(self.frames), self.rate, style, self.settings["auto_paste"], self.target,
                        *self.vocabulary(), self.command, self.selection))
         self.command = False
@@ -828,10 +847,12 @@ class Murmur:
             self.events.put(("failed", f"Error: {e}"))
 
     def ev_failed(self, msg):
+        self.busy = max(0, self.busy - 1)
         self.set_status(msg)
         self.sound("error")
 
     def ev_result(self, text, note, target, auto_paste, instruction=None):
+        self.busy = max(0, self.busy - 1)
         entry = {"text": text, "time": time.time(), "app": target.name if target else ""}
         if instruction:
             entry["command"] = instruction
@@ -839,7 +860,7 @@ class Murmur:
         del self.history[500:]
         system.save_json("history.json", self.history)
         self.latest = self.latest_original = text
-        pasting = auto_paste and target is not None
+        pasting = auto_paste and target is not None and system.accessibility_ok()  # macOS blocks the paste without it
         saved = self.save_clipboard() if pasting and self.settings["restore_clipboard"] else None
         self.copy(text)
         if saved is not None:
@@ -907,4 +928,8 @@ def already_running():
 
 if __name__ == "__main__":
     if not already_running():
-        Murmur().root.mainloop()
+        murmur = Murmur()
+        try:
+            murmur.root.mainloop()
+        finally:
+            murmur.forget_instance()
