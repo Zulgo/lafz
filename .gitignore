@@ -1,0 +1,15 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Build output and local files
+*.app/
+archive/
+*.log
+.DS_Store
+
+# Never commit secrets
+.env
+*.pem
+*.key
