@@ -344,6 +344,11 @@ class Murmur:
         threading.Thread(target=run, daemon=True).start()
 
     def restart(self):
+        if MAC:
+            from AppKit import NSBundle
+            bundle = NSBundle.mainBundle()
+            if bundle.bundleIdentifier() == system.BUNDLE_ID:  # running inside Murmur.app: restart as the app itself
+                os.execv(bundle.executablePath(), [bundle.executablePath()])
         os.execv(sys.executable, [sys.executable] + sys.argv)
 
     def ev_setup_changed(self):
