@@ -9,7 +9,7 @@ APPLE_SILICON = sys.platform == "darwin" and platform.machine() == "arm64"
 VAD_MODEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "silero_vad.onnx")
 VAD_CHUNK, VAD_CONTEXT = 512, 64  # Silero VAD at 16 kHz: 32 ms chunks plus 64 samples of context
 OLLAMA = "http://localhost:11434"
-LLM_MODEL = "qwen2.5:3b"
+LLM_MODEL = "qwen2.5:1.5b"  # Apache 2.0; ~1 GB, fast and faithful for cleanup
 HALLUCINATIONS = {"thank you.", "thanks for watching.", "you", "bye.", "thank you very much."}
 # Only short function words are de-duplicated; repeats like "had had" or "very very" can be intentional.
 STUTTER_WORDS = r"i|i'm|a|an|the|to|and|but|so|we|it|in|of|on|for|you|he|she|they|my|this|what|just"

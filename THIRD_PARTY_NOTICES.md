@@ -14,7 +14,7 @@ Murmur's own code is MIT licensed (see [LICENSE](LICENSE)). It bundles or downlo
 | --- | --- | --- |
 | [Whisper large-v3-turbo / small.en](https://github.com/openai/whisper) (MLX and CTranslate2 conversions) | Speech-to-text | MIT |
 | [NVIDIA Parakeet TDT 0.6B v2](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) | Speech-to-text | CC-BY-4.0 |
-| [Qwen2.5 3B](https://ollama.com/library/qwen2.5) via Ollama | Optional text cleanup | Qwen Research License (non-commercial). Check the license before commercial use, or switch to another Ollama model. |
+| [Qwen2.5 1.5B Instruct](https://ollama.com/library/qwen2.5) via Ollama | Optional text cleanup | Apache 2.0 |
 
 ## Python libraries
 

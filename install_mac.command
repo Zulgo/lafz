@@ -10,7 +10,7 @@ export PATH="$HOME/.local/bin:/opt/homebrew/bin:$PATH"
 echo "==> Installing Ollama (local cleanup model)…"
 command -v ollama >/dev/null || { command -v brew >/dev/null && brew install ollama || echo "Install Ollama from https://ollama.com (optional: only needed for LLM cleanup)"; }
 (brew services start ollama >/dev/null 2>&1 || (nohup ollama serve >/dev/null 2>&1 &)) || true
-sleep 3; ollama pull qwen2.5:3b || echo "(skipped cleanup model; Murmur will use rule-based cleanup)"
+sleep 3; ollama pull qwen2.5:1.5b || echo "(skipped cleanup model; Murmur will use rule-based cleanup)"
 echo "==> Installing Murmur's libraries…"
 uv sync
 echo "==> Building Murmur.app in ~/Applications…"

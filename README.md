@@ -87,7 +87,7 @@ If something fails on Windows, please [open an issue](https://github.com/Zulgo/m
 ```bash
 git clone https://github.com/Zulgo/murmur.git && cd murmur
 uv sync                      # install dependencies into .venv
-ollama pull qwen2.5:3b       # optional: AI cleanup model
+ollama pull qwen2.5:1.5b     # optional: AI cleanup model
 uv run python app.py         # run from the terminal
 ```
 

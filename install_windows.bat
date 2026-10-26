@@ -9,7 +9,7 @@ where ollama >nul 2>nul || winget install -e --id Ollama.Ollama --accept-source-
 rem winget's PATH change only applies to new windows, so add Ollama's install folder for this one.
 set "PATH=%LOCALAPPDATA%\Programs\Ollama;%PATH%"
 ollama list >nul 2>nul || (start "" /b ollama serve & timeout /t 5 /nobreak >nul)
-ollama pull qwen2.5:3b || echo (Skipped cleanup model; Murmur will use rule-based cleanup.)
+ollama pull qwen2.5:1.5b || echo (Skipped cleanup model; Murmur will use rule-based cleanup.)
 echo ==^> Installing Murmur libraries...
 uv sync || goto :fail
 echo ==^> Creating Desktop shortcut...
