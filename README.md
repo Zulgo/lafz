@@ -232,6 +232,13 @@ On 8 GB Macs, try **Whisper Fast** (Settings → Speech model) and keep **Memory
 </details>
 
 <details>
+<summary><b>Murmur doesn't open after updating Python or uv (Mac)</b></summary>
+
+Murmur.app runs the Python that was installed when the app was built. If that Python was updated or removed, rebuild
+the app: open Terminal in the Murmur folder and run `uv sync && ./build_app.sh`.
+</details>
+
+<details>
 <summary><b>Where are the logs?</b></summary>
 
 Mac: `~/Library/Logs/Murmur.log`. Windows: `murmur.log` in your user folder.

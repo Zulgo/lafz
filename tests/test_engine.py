@@ -91,6 +91,15 @@ def test_ai_correction_may_only_delete_words():
     assert not engine._only_deleted("send it to John sorry to Priya", "Please send it to Priya.")  # added a word
     assert not engine._only_deleted("meet at 3 no wait 4", "meet at 4 instead")                   # added a word
     assert not engine._only_deleted("thanks for the update", "thanks for the update")             # nothing removed
+    assert not engine._only_deleted("I'm actually really happy with it", "I'm really happy with it")  # just the cue
+    assert not engine._only_deleted("No problem, see you tomorrow", "See you tomorrow")             # starts with cue
+    assert engine._only_deleted("We'll ship on Tuesday, I mean on Wednesday", "We'll ship on Wednesday")
+
+
+def test_ai_saying_no_correction_is_trusted(monkeypatch):
+    text = "I think the plan works, I mean the budget is fine."
+    monkeypatch.setattr(engine, "ollama", lambda *a, **k: text)  # the AI returns the text unchanged
+    assert engine.resolve_corrections(text) == (text, False)
 
 
 def test_correction_with_units_and_whisper_punctuation():

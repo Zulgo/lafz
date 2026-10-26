@@ -345,15 +345,28 @@ CORRECTION_PROMPT = (
     "\n\nText: sorry for the late reply\nResult: sorry for the late reply\n\nText: ")
 
 
+_CUE_WORDS = {"no", "wait", "sorry", "actually", "mean", "rather", "correction", "make", "rephrase"}
+
+
 def _only_deleted(original, result):
-    """True if result is the original with words removed (ignoring case and punctuation): nothing added or reworded."""
+    """True if result is the original minus corrections: nothing added or reworded, and every removed chunk is
+    'words taken back + correction phrase' (a cue word after at least one other word), e.g. "3 no wait" or
+    "John sorry to". Deleting just a cue word ("actually") or a sentence that starts with one ("No problem") isn't a
+    correction."""
     # "4pm" and "4 pm" are the same words; punctuation and case don't matter
     norm = lambda s: re.sub(r"(\d)([a-z])", r"\1 \2", re.sub(r"[^\w\s']", " ", s.lower())).split()
     a, b = norm(original), norm(result)
     if not b or len(b) >= len(a):
         return False
     ops = difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes()
-    return all(op in ("equal", "delete") for op, *_ in ops)
+    if not all(op in ("equal", "delete") for op, *_ in ops):
+        return False
+    for op, i1, i2, _, _ in ops:
+        removed = a[i1:i2]
+        if op == "delete" and not (any(w in _CUE_WORDS for w in removed[1:]) and
+                                   any(w not in _CUE_WORDS for w in removed)):
+            return False
+    return True
 
 
 def _scratch_that(text):
@@ -402,9 +415,9 @@ def resolve_corrections(text):
         return text, changed
     try:
         out = ollama(CORRECTION_PROMPT + text + "\nResult:").strip()
-        if _only_deleted(text, out):
-            return out, True
-    except Exception:
-        pass
-    ruled = _rule_corrections(text)
-    return ruled, changed or ruled != text
+    except Exception:  # no local AI: built-in rules for the unmistakable cases
+        ruled = _rule_corrections(text)
+        return ruled, changed or ruled != text
+    if _only_deleted(text, out):
+        return out, True
+    return text, changed  # the AI found no correction (or its answer failed the check): keep the words as spoken
