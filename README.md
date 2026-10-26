@@ -35,6 +35,7 @@ After the one-time model downloads, Murmur works fully offline.
 - **Hands-free:** double-tap the hotkey to keep recording; tap again to finish.
 - **Command mode:** select text, hold **Shift** + the hotkey and say what to do ("make this shorter", "translate to German"). With nothing selected, say what to write ("a polite reply declining the meeting").
 - **Voice commands:** say "new line", "new paragraph" or "bullet point" for formatting.
+- **Self-corrections:** "at 3, no wait, 4 pm" becomes "at 4 pm".
 - **Your clipboard is kept:** whatever you had copied is put back after Murmur pastes.
 - **Live preview:** see your words while you're still speaking.
 - **Writing styles:** Raw, Clean (fillers removed), Formal (polite rewrite), Bullet points, plus **per-app styles** (raw in the terminal, formal in Mail).
@@ -144,6 +145,20 @@ Slack = clean
 | "bullet point" / "next bullet" | a new `- ` list item |
 
 Turn them off in Settings if you dictate those words literally.
+
+### Self-corrections
+
+Changed your mind mid-sentence? Murmur keeps only what you meant:
+
+| You say | You get |
+| --- | --- |
+| "Let's meet at 3, no wait, 4 pm" | Let's meet at 4 pm. |
+| "Send it to John, sorry, to Priya" | Send it to Priya. |
+| "Book the room for Tuesday. Scratch that, let's do it next week" | Let's do it next week. |
+
+The local AI may only **remove** the words you took back; if it adds or rewords anything, Murmur ignores it. Words like
+"actually" or "sorry" that you mean literally are kept. Without Ollama, built-in rules handle "scratch that" and clear
+cases like "on Tuesday, I mean on Wednesday". Not applied in the Raw style; turn it off in Settings.
 
 ### Dictionary
 

@@ -328,3 +328,83 @@ def run_command(instruction, selection):
     except Exception:
         return None, "Command mode needs Ollama — start it from the Setup tab"
     return (out or None), ("" if out else "The AI returned nothing")
+
+
+# ---- self-corrections: "at 3, no wait, 4 pm" -> "at 4 pm" ----
+_STRONG_CUES = r"no,? wait|wait,? no|scratch that|i mean|or rather|correction|make that|let me rephrase"
+_ANY_CUE = re.compile(rf"\b(?:{_STRONG_CUES}|no|wait|sorry|actually|rather)\b", re.I)
+_STRONG = re.compile(rf"[,.;:]?\s*\b(?:{_STRONG_CUES})\b[,.;:!]?\s*", re.I)
+CORRECTION_PROMPT = (
+    "This is dictated speech. When the speaker corrects themselves, keep only the corrected version: delete the "
+    "words they took back and the correction phrase (like 'no wait', 'sorry', 'I mean', 'actually'). If they didn't "
+    "correct themselves, return the text unchanged. Never add, reword or reorder anything. Reply with the text only."
+    "\n\nText: let's meet at 3 no wait 4 pm\nResult: let's meet at 4 pm"
+    "\n\nText: send it to John sorry to Priya\nResult: send it to Priya"
+    "\n\nText: I'm actually really happy with it\nResult: I'm actually really happy with it"
+    "\n\nText: book the room for Tuesday scratch that let's do it next week\nResult: let's do it next week"
+    "\n\nText: sorry for the late reply\nResult: sorry for the late reply\n\nText: ")
+
+
+def _only_deleted(original, result):
+    """True if result is the original with words removed (ignoring case and punctuation): nothing added or reworded."""
+    # "4pm" and "4 pm" are the same words; punctuation and case don't matter
+    norm = lambda s: re.sub(r"(\d)([a-z])", r"\1 \2", re.sub(r"[^\w\s']", " ", s.lower())).split()
+    a, b = norm(original), norm(result)
+    if not b or len(b) >= len(a):
+        return False
+    ops = difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes()
+    return all(op in ("equal", "delete") for op, *_ in ops)
+
+
+def _scratch_that(text):
+    """'Scratch that' at the start of a sentence drops the previous sentence; mid-sentence, what came before it."""
+    out = []
+    for sentence in re.split(r"(?<=[.!?])\s+", text.strip()):
+        m = re.search(r"\bscratch that\b[,.;:!]?\s*", sentence, re.I)
+        if not m:
+            out.append(sentence)
+            continue
+        if not sentence[:m.start()].strip(" ,;:") and out:
+            out.pop()
+        rest = sentence[m.end():]
+        if rest:
+            out.append(rest[0].upper() + rest[1:])
+    return " ".join(out)
+
+
+def _rule_corrections(text):
+    """Built-in handling of unmistakable corrections, used when the local AI isn't available."""
+    for _ in range(3):  # a few corrections in one dictation
+        m = _STRONG.search(text)
+        if not m:
+            break
+        before, after = text[:m.start()], text[m.end():]
+        b_words, a_words = before.split(), after.split()
+        if not b_words or not a_words:
+            break
+        first = re.sub(r"\W", "", a_words[0].lower())
+        anchor = next((i for i in range(len(b_words) - 1, -1, -1) if re.sub(r"\W", "", b_words[i].lower()) == first), None)
+        if anchor is not None:  # "on Tuesday, I mean on Wednesday": restart from the repeated word
+            text = " ".join(b_words[:anchor] + a_words)
+        elif re.sub(r"\W", "", b_words[-1]).isdigit() and a_words[0][:1].isdigit():
+            text = " ".join(b_words[:-1] + a_words)  # "at 3, no wait, 4 pm" (or "4pm"): swap the number
+        else:
+            break  # unsure what was replaced: keep the words as spoken
+    return text
+
+
+def resolve_corrections(text):
+    """Keep only the corrected version when the speaker corrects themselves. Returns (text, changed)."""
+    scratched = _scratch_that(text)
+    changed = scratched != text
+    text = scratched
+    if not _ANY_CUE.search(text):
+        return text, changed
+    try:
+        out = ollama(CORRECTION_PROMPT + text + "\nResult:").strip()
+        if _only_deleted(text, out):
+            return out, True
+    except Exception:
+        pass
+    ruled = _rule_corrections(text)
+    return ruled, changed or ruled != text

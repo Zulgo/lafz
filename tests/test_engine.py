@@ -65,3 +65,34 @@ def test_resample_to_16k():
 
 def test_cleanup_raw_style_is_untouched():
     assert engine.cleanup("um hello", "raw") == ("um hello", "")
+
+
+@pytest.mark.parametrize("spoken, text", [
+    ("Book the room for Tuesday. Scratch that, let's do it next week.", "Let's do it next week."),
+    ("Call the client, scratch that, email the client instead.", "Email the client instead."),
+    ("Thanks for the update. See you tomorrow.", "Thanks for the update. See you tomorrow."),
+])
+def test_scratch_that(spoken, text):
+    assert engine._scratch_that(spoken) == text
+
+
+@pytest.mark.parametrize("spoken, text", [
+    ("We'll ship on Tuesday, I mean on Wednesday.", "We'll ship on Wednesday."),
+    ("Let's meet at 3, no wait, 4 pm.", "Let's meet at 4 pm."),
+    ("I mean it, thank you so much.", "I mean it, thank you so much."),  # not a correction
+    ("Send it to John, I mean Priya.", "Send it to John, I mean Priya."),  # unsure without the AI: keep as spoken
+])
+def test_rule_corrections(spoken, text):
+    assert engine._rule_corrections(spoken) == text
+
+
+def test_ai_correction_may_only_delete_words():
+    assert engine._only_deleted("send it to John sorry to Priya", "Send it to Priya.")
+    assert not engine._only_deleted("send it to John sorry to Priya", "Please send it to Priya.")  # added a word
+    assert not engine._only_deleted("meet at 3 no wait 4", "meet at 4 instead")                   # added a word
+    assert not engine._only_deleted("thanks for the update", "thanks for the update")             # nothing removed
+
+
+def test_correction_with_units_and_whisper_punctuation():
+    assert engine._only_deleted("Let's meet at 3. No wait. 4pm.", "Let's meet at 4 pm.")
+    assert engine._rule_corrections("Let's meet at 3. No wait. 4pm.") == "Let's meet at 4pm."

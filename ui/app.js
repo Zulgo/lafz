@@ -231,6 +231,7 @@ function renderSettings() {
     toggleHTML("restore_clipboard", "Keep my clipboard", "Put back what you had copied after pasting") +
     toggleHTML("live_preview", "Live preview", "Show words while you're still speaking") +
     toggleHTML("voice_commands", "Voice commands", "“new line”, “new paragraph”, “bullet point”") +
+    toggleHTML("self_corrections", "Fix self-corrections", "“at 3, no wait, 4 pm” becomes “at 4 pm”") +
     toggleHTML("sounds", "Sounds", "A soft tick when recording starts and finishes") + "</div>";
   $("set-privacy").innerHTML = `<div class="card-head"><h3>Privacy &amp; memory</h3></div><div class="toggles">` +
     toggleHTML("learn", "Learn from my corrections", "Fixes and names, stored only on this computer") +

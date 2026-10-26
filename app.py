@@ -38,7 +38,7 @@ TYPING_WPM, SPEAKING_WPM = 40, 130  # for the "time saved" estimate
 DEFAULTS = {
     "hotkey": "alt_r" if MAC else "ctrl_r", "mic": "", "model": "whisper-accurate", "language": "en",
     "style": "clean", "live_preview": True, "sounds": True, "auto_paste": True, "restore_clipboard": True,
-    "voice_commands": True, "start_minimized": False, "start_at_login": False, "show_in_dock": True,
+    "voice_commands": True, "self_corrections": True, "start_minimized": False, "start_at_login": False, "show_in_dock": True,
     "memory_saver": True, "keep_recordings": True, "learn": True,
     "dictionary": "# One word per line, or 'wrong -> right'\n",
     "app_rules": ("# App name = style (raw, clean, formal, bullets)\nTerminal = raw\niTerm2 = raw\n" if MAC else
@@ -838,6 +838,8 @@ class Murmur:
                 self.events.put(("result", result, "", target, auto_paste, text))
                 return
             note = ""
+            if style != "raw" and self.settings["self_corrections"]:  # "at 3, no wait, 4 pm" -> "at 4 pm"
+                text, _ = engine.resolve_corrections(text)
             # Voice commands go first, so cleanup can't drop "new line" as filler; formal/bullet rewrites
             # restructure the text anyway, so for those the commands are applied to the result.
             line_by_line = self.settings["voice_commands"] and style in ("raw", "clean")
