@@ -10,7 +10,7 @@
   Everything runs on your own computer. No account, no cloud, no subscription.
 </p>
 
-<p align="center"><i>Lafz (لفظ) means "word" in Urdu. It was called Murmur until version 0.5.0.</i></p>
+<p align="center"><i>Lafz (لفظ) means "word" in Urdu.</i></p>
 
 <p align="center">
   <a href="https://github.com/Zulgo/lafz/actions/workflows/ci.yml"><img src="https://github.com/Zulgo/lafz/actions/workflows/ci.yml/badge.svg" alt="Tests"></a>
@@ -115,10 +115,6 @@ On macOS, `./build_app.sh` creates the clickable `~/Applications/Lafz.app`.
 - **Windows:** unzip the new release over the old folder and run `install_windows.bat` again.
 
 Your history, dictionary and learned words are kept.
-
-**Coming from Murmur?** Update as above. The Mac installer replaces Murmur.app with Lafz.app (the old app goes to the
-Trash), and Lafz moves your history and settings over on its first launch. Allow Microphone and Accessibility for
-Lafz once.
 
 ## How to use
 
