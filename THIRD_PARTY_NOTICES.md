@@ -1,6 +1,6 @@
 # Third-party notices
 
-Murmur's own code is MIT licensed (see [LICENSE](LICENSE)). It bundles or downloads the following:
+Lafz's own code is MIT licensed (see [LICENSE](LICENSE)). It bundles or downloads the following:
 
 ## Bundled in this repository
 

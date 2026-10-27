@@ -19,7 +19,7 @@ def server():
 def request(server, path, token=None, host=None, data=None):
     req = urllib.request.Request(f"http://127.0.0.1:{server.port}{path}", data=data)
     if token:
-        req.add_header("X-Murmur-Token", token)
+        req.add_header("X-Lafz-Token", token)
     if host:
         req.add_header("Host", host)
     try:

@@ -27,3 +27,15 @@ def test_private_files_are_owner_only():
     for root, _, files in os.walk(folder):
         for f in files:
             assert os.stat(os.path.join(root, f)).st_mode & 0o077 == 0, f
+
+
+def test_murmur_data_moves_to_lafz():
+    import os
+    import system
+    old = os.path.join(system._settings_base(), "Murmur")
+    os.makedirs(old)
+    with open(os.path.join(old, "history.json"), "w") as f:
+        f.write("[]")
+    system.load_json("instance.json", None)  # the very first lookup, as when checking for a running copy
+    assert not os.path.exists(old)
+    assert os.path.exists(os.path.join(system.config_dir(), "history.json"))

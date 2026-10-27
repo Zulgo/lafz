@@ -1,4 +1,4 @@
-"""Murmur speech engine: speech detection, speech-to-text (Whisper), dictionary and cleanup. No UI code."""
+"""Lafz speech engine: speech detection, speech-to-text (Whisper), dictionary and cleanup. No UI code."""
 import difflib, gc, json, os, platform, re, subprocess, sys, urllib.request
 
 import numpy as np
@@ -231,7 +231,7 @@ def rule_clean(text):
 def listener_is_mine(port=OLLAMA_PORT):
     """True if the program listening on this localhost port runs as the current user. Any account on the computer can
     listen on a localhost port, so without this check another signed-in user could pose as Ollama, read dictations
-    and choose the text Murmur pastes."""
+    and choose the text Lafz pastes."""
     try:
         if sys.platform == "darwin":  # lsof only sees this user's processes; -u makes that explicit
             r = subprocess.run(["/usr/sbin/lsof", "-nP", "-a", f"-u{os.getuid()}", f"-iTCP:{port}", "-sTCP:LISTEN",

@@ -1,10 +1,10 @@
-"""Local, adaptive learning: Murmur improves from how the user corrects it. Nothing leaves the computer.
+"""Local, adaptive learning: Lafz improves from how the user corrects it. Nothing leaves the computer.
 
 - Corrections: when the user changes a word or two of a dictation (e.g. "dust in" -> "Dustin") the pair is counted.
   After the same correction is seen LEARN_AFTER times it becomes an automatic fix.
 - Vocabulary: names and unusual words that keep appearing in the user's final text are passed to Whisper as hints.
 
-Only word pairs and word counts are stored (learning.json in Murmur's settings folder)."""
+Only word pairs and word counts are stored (learning.json in Lafz's settings folder)."""
 import difflib, re, time
 
 import system
@@ -42,7 +42,7 @@ class Learner:
 
     # ---- corrections ----
     def observe_correction(self, original, corrected):
-        """Compare what Murmur produced with what the user turned it into. Returns newly learned (wrong, right)."""
+        """Compare what Lafz produced with what the user turned it into. Returns newly learned (wrong, right)."""
         a, b = words(original), words(corrected)
         if not a or not b or a == b:
             return []

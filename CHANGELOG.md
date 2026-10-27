@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0
+
+### Changed
+- **Murmur is now Lafz** (لفظ, Urdu for "word"). The app, window, menu bar, installers and GitHub repository use the
+  new name. Your history, settings, dictionary and learned words move over automatically, and Start at login keeps
+  working. On a Mac, the installer replaces Murmur.app with Lafz.app; allow Microphone and Accessibility once.
+
 ## 0.5.0
 
 ### New

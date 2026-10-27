@@ -1,4 +1,4 @@
-"""macOS main window: native frosted-glass window hosting Murmur's web interface (WKWebView). Main thread only."""
+"""macOS main window: native frosted-glass window hosting Lafz's web interface (WKWebView). Main thread only."""
 import json
 
 from AppKit import (NSApplication, NSAppearance, NSAppearanceNameDarkAqua, NSBackingStoreBuffered, NSMakeRect,
@@ -15,7 +15,7 @@ TITLEBAR = 28  # translucent strip at the top: holds the window buttons and lets
 
 class _Delegate(NSObject):
     def windowShouldClose_(self, window):
-        window.orderOut_(None)  # closing hides; Murmur keeps running in the menu bar
+        window.orderOut_(None)  # closing hides; Lafz keeps running in the menu bar
         return False
 
 
@@ -25,14 +25,14 @@ class MainWindow:
                  NSWindowStyleMaskResizable | NSWindowStyleMaskFullSizeContentView)
         self.window = w = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
             NSMakeRect(0, 0, 1120, 740), style, NSBackingStoreBuffered, False)
-        w.setTitle_("Murmur")
+        w.setTitle_("Lafz")
         w.setTitlebarAppearsTransparent_(True)
         w.setTitleVisibility_(NSWindowTitleHidden)
         w.setMinSize_((880, 580))
         w.setAppearance_(NSAppearance.appearanceNamed_(NSAppearanceNameDarkAqua))
         w.setReleasedWhenClosed_(False)
         w.center()
-        w.setFrameAutosaveName_("MurmurMain")
+        w.setFrameAutosaveName_("LafzMain")
         self.delegate = _Delegate.alloc().init()
         w.setDelegate_(self.delegate)
 
@@ -52,7 +52,7 @@ class MainWindow:
 
     def show(self, page=None):
         if page:
-            self.web.evaluateJavaScript_completionHandler_(f"window.murmurGo && murmurGo({json.dumps(page)})", None)
+            self.web.evaluateJavaScript_completionHandler_(f"window.lafzGo && lafzGo({json.dumps(page)})", None)
         NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
         self.window.makeKeyAndOrderFront_(None)
 

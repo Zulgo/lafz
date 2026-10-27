@@ -1,4 +1,4 @@
-// Murmur window: renders the app state (long-polled from the local server) and sends actions back.
+// Lafz window: renders the app state (long-polled from the local server) and sends actions back.
 "use strict";
 const TOKEN = new URLSearchParams(location.search).get("t") || "";
 const $ = (id) => document.getElementById(id);
@@ -18,7 +18,7 @@ let S = null;              // latest state from the app
 const seen = {};           // JSON of what each section last rendered, to skip unchanged work
 
 async function api(action) {
-  await fetch("/api/action", { method: "POST", headers: { "Content-Type": "application/json", "X-Murmur-Token": TOKEN },
+  await fetch("/api/action", { method: "POST", headers: { "Content-Type": "application/json", "X-Lafz-Token": TOKEN },
                                body: JSON.stringify(action) });
 }
 const set = (key, value) => api({ type: "set", key, value });
@@ -27,7 +27,7 @@ async function loop() {
   let version = 0;
   for (;;) {
     try {
-      const r = await fetch(`/api/state?since=${version}`, { headers: { "X-Murmur-Token": TOKEN } });
+      const r = await fetch(`/api/state?since=${version}`, { headers: { "X-Lafz-Token": TOKEN } });
       if (!r.ok) throw new Error(r.status);
       const data = await r.json();
       version = data.version;
@@ -54,7 +54,7 @@ function go(page) {
   if (location.hash !== `#${page}`) history.replaceState(null, "", `${location.search}#${page}`);
   $("main").scrollTop = 0;
 }
-window.murmurGo = go;
+window.lafzGo = go;
 window.addEventListener("hashchange", () => go(location.hash.slice(1)));
 
 // ---------- render ----------
@@ -109,7 +109,7 @@ function renderHero() {
     transcribing: "Transcribing…", cleaning: "Polishing…",
   };
   const subs = {
-    idle: !S.setup_ok ? "Finish the one-time setup so Murmur can hear you and paste for you."
+    idle: !S.setup_ok ? "Finish the one-time setup so Lafz can hear you and paste for you."
       : S.model_status === "sleeping" ? "Resting to save memory. It wakes up the moment you speak."
       : S.model_status === "loading" ? "Loading the speech model…"
       : "Hold your hotkey, speak naturally, let go. Your words appear where your cursor is.",
@@ -241,15 +241,15 @@ function renderSettings() {
     toggleHTML("start_at_login", "Start at login", "") + toggleHTML("start_minimized", "Start in the background", "Open without showing this window") +
     (S.platform === "mac" ? toggleHTML("show_in_dock", "Show in Dock", "Off: menu bar only") : "") + "</div>";
   setField($("rules"), S.settings.app_rules);
-  $("about").textContent = `Murmur ${S.version} · MIT License · Everything runs on this computer.`;
+  $("about").textContent = `Lafz ${S.version} · MIT License · Everything runs on this computer.`;
   $("restart-btn").hidden = S.platform !== "mac";
 }
 
 function renderSetup() {
   const req = S.setup.filter((i) => i.required);
   const done = req.filter((i) => i.ok === true).length;
-  $("setup-lead").textContent = S.setup_ok ? "All set. Murmur is ready to listen." :
-    `${done} of ${req.length} required steps done. ${S.platform === "mac" ? "After changing a permission, click Restart Murmur." : ""}`;
+  $("setup-lead").textContent = S.setup_ok ? "All set. Lafz is ready to listen." :
+    `${done} of ${req.length} required steps done. ${S.platform === "mac" ? "After changing a permission, click Restart Lafz." : ""}`;
   $("setup-list").innerHTML = S.setup.map((i) => {
     const cls = i.ok === true ? "ok" : i.ok === false ? (i.required ? "bad" : "wait") : "wait";
     return `<div class="check"><span class="status-icon ${cls}">${icon[cls === "ok" ? "ok" : cls === "bad" ? "bad" : "wait"]}</span>` +

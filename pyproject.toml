@@ -1,6 +1,6 @@
 [project]
-name = "murmur"
-version = "0.5.0"
+name = "lafz"
+version = "0.6.0"
 description = "Private, free push-to-talk dictation that runs entirely on your computer"
 readme = "README.md"
 license = "MIT"

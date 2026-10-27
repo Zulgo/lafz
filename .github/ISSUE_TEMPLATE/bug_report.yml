@@ -25,10 +25,10 @@ body:
     id: setup
     attributes:
       label: Setup tab
-      description: Which items in Murmur's Setup tab are not ✅?
+      description: Which items in Lafz's Setup tab are not ✅?
   - type: textarea
     id: log
     attributes:
       label: Log
-      description: The end of `~/Library/Logs/Murmur.log` (Mac) or `murmur.log` in your user folder (Windows).
+      description: The end of `~/Library/Logs/Lafz.log` (Mac) or `lafz.log` in your user folder (Windows).
       render: text

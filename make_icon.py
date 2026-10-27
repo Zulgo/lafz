@@ -1,4 +1,4 @@
-"""Builds Murmur's app icons from assets/logo_source.png (the 3D bear artwork), plus the menu bar bear.
+"""Builds Lafz's app icons from assets/logo_source.png (the 3D bear artwork), plus the menu bar bear.
 Crops the rounded tile, makes the corners transparent, and places it on Apple's 1024 px icon grid.
 Run: uv run --no-project --with pillow --with numpy python make_icon.py"""
 import io, os, struct

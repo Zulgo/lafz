@@ -1,17 +1,43 @@
-"""Murmur OS integration for macOS and Windows: focus, keystrokes, sounds, login item, permissions, settings files."""
+"""Lafz OS integration for macOS and Windows: focus, keystrokes, sounds, login item, permissions, settings files."""
 import json, os, subprocess, sys
 
 MAC = sys.platform == "darwin"
 WINDOWS = sys.platform == "win32"
-BUNDLE_ID = "local.murmur.dictation"
+BUNDLE_ID = "local.lafz.dictation"
+OLD_BUNDLE_ID = "local.murmur.dictation"  # Lafz was called Murmur up to version 0.5.0
 
 
 # ---- settings / history files ----
-def config_dir():
-    """Murmur's private folder (history, recordings, settings): readable by the user's account only."""
-    base = (os.path.expanduser("~/Library/Application Support") if MAC else
+def _settings_base():
+    return (os.path.expanduser("~/Library/Application Support") if MAC else
             os.environ.get("APPDATA", os.path.expanduser("~")))
-    path = os.path.join(base, "Murmur")
+
+
+def migrate_from_murmur():
+    """Lafz was called Murmur up to 0.5.0: remove Murmur's login item (config_dir() moves its files)."""
+    if MAC:
+        agent = os.path.expanduser(f"~/Library/LaunchAgents/{OLD_BUNDLE_ID}.plist")
+        if os.path.exists(agent):
+            os.remove(agent)
+    elif WINDOWS:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0,
+                            winreg.KEY_SET_VALUE) as key:
+            try:
+                winreg.DeleteValue(key, "Murmur")
+            except FileNotFoundError:
+                pass
+
+
+def config_dir():
+    """Lafz's private folder (history, recordings, settings): readable by the user's account only."""
+    path = os.path.join(_settings_base(), "Lafz")
+    old = os.path.join(_settings_base(), "Murmur")  # Lafz was called Murmur up to 0.5.0: keep the user's files
+    if os.path.isdir(old) and not os.path.exists(path):
+        try:
+            os.rename(old, path)
+        except OSError:  # Windows: Murmur is still running and holds a file open; try again next launch
+            pass
     os.makedirs(path, mode=0o700, exist_ok=True)
     return path
 
@@ -111,7 +137,7 @@ class Target:
 
 
 def frontmost():
-    """The app the user is dictating into (None if it's Murmur itself)."""
+    """The app the user is dictating into (None if it's Lafz itself)."""
     if MAC:
         from AppKit import NSWorkspace
         app = NSWorkspace.sharedWorkspace().frontmostApplication()
@@ -168,7 +194,7 @@ def copy_text(text):
 
 
 def clipboard_snapshot():
-    """Copy of the current clipboard, to put back after Murmur pastes. None where unsupported."""
+    """Copy of the current clipboard, to put back after Lafz pastes. None where unsupported."""
     if not MAC:
         return None
     from AppKit import NSPasteboard
@@ -178,7 +204,7 @@ def clipboard_snapshot():
 
 
 def clipboard_mark(snapshot):
-    """Remember the clipboard's state right after Murmur put its text there."""
+    """Remember the clipboard's state right after Lafz put its text there."""
     if snapshot is not None:
         from AppKit import NSPasteboard
         snapshot["count"] = NSPasteboard.generalPasteboard().changeCount()
@@ -205,7 +231,7 @@ def clipboard_restore(snapshot):
 
 
 def set_dock_icon(path):
-    """macOS: Murmur runs as a Python process, so set the bear as its Dock icon (otherwise Python's icon shows)."""
+    """macOS: Lafz runs as a Python process, so set the bear as its Dock icon (otherwise Python's icon shows)."""
     if MAC:
         from AppKit import NSApplication, NSImage
         image = NSImage.alloc().initWithContentsOfFile_(path)
@@ -214,7 +240,7 @@ def set_dock_icon(path):
 
 
 def set_show_in_dock(show):
-    """macOS: show Murmur in the Dock, or run from the menu bar only."""
+    """macOS: show Lafz in the Dock, or run from the menu bar only."""
     if MAC:
         from AppKit import NSApplication, NSApplicationActivationPolicyAccessory, NSApplicationActivationPolicyRegular
         NSApplication.sharedApplication().setActivationPolicy_(
@@ -223,7 +249,7 @@ def set_show_in_dock(show):
 
 def focused_text_field():
     """macOS: (field, cursor_position) for the focused editable text field in any app, or None.
-    Password fields are never read. Used only to notice how the user corrects text Murmur pasted."""
+    Password fields are never read. Used only to notice how the user corrects text Lafz pasted."""
     if not MAC:
         return None
     from ApplicationServices import (AXUIElementCopyAttributeValue, AXUIElementCreateSystemWide, AXValueGetValue,
@@ -274,7 +300,7 @@ _MAC_Z = 6
 
 
 def mac_key(event):
-    """(name, is_down) for a macOS key event Murmur cares about, else None."""
+    """(name, is_down) for a macOS key event Lafz cares about, else None."""
     from AppKit import NSEventTypeFlagsChanged, NSEventTypeKeyDown, NSEventTypeKeyUp
     kind, code = event.type(), event.keyCode()
     if kind == NSEventTypeFlagsChanged and code in _MAC_MODIFIERS:
@@ -373,11 +399,11 @@ def set_start_at_login(enabled):
                              winreg.KEY_SET_VALUE)
         if enabled:
             pyw = sys.executable.replace("python.exe", "pythonw.exe")
-            winreg.SetValueEx(key, "Murmur", 0, winreg.REG_SZ,
+            winreg.SetValueEx(key, "Lafz", 0, winreg.REG_SZ,
                               f'"{pyw}" "{os.path.abspath(sys.argv[0])}"')
         else:
             try:
-                winreg.DeleteValue(key, "Murmur")
+                winreg.DeleteValue(key, "Lafz")
             except FileNotFoundError:
                 pass
         winreg.CloseKey(key)

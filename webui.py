@@ -1,7 +1,7 @@
-"""Murmur's window is a small web app (ui/) served to this computer only.
+"""Lafz's window is a small web app (ui/) served to this computer only.
 
 The server listens on 127.0.0.1 with a random port. Every API call must carry a secret token created at launch, and
-requests addressed to any other host are refused, so web pages in a browser can't read or control Murmur (no CORS
+requests addressed to any other host are refused, so web pages in a browser can't read or control Lafz (no CORS
 headers are sent, and the custom token header can't be set cross-origin without a preflight we never allow).
 
 GET  /api/state?since=N   long-poll: returns the app state once its version is newer than N (or after 25 s)
@@ -60,7 +60,7 @@ def _handler(server):
             host = self.headers.get("Host", "")
             if host not in (f"127.0.0.1:{server.port}", f"localhost:{server.port}"):
                 return False  # blocks DNS-rebinding: a malicious site's domain pointed at 127.0.0.1
-            return not need_token or secrets.compare_digest(self.headers.get("X-Murmur-Token", ""), server.token)
+            return not need_token or secrets.compare_digest(self.headers.get("X-Lafz-Token", ""), server.token)
 
         def do_GET(self):
             url = urlparse(self.path)

@@ -22,15 +22,15 @@ class _Target(NSObject):
 class MenuBar:
     def __init__(self, on_open, on_settings, on_undo, on_quit):
         self.item = NSStatusBar.systemStatusBar().statusItemWithLength_(NSVariableStatusItemLength)
-        self.item.button().setToolTip_("Murmur")
+        self.item.button().setToolTip_("Lafz")
         actions = [on_open, on_settings, on_undo, on_quit]
         self.target = _Target.alloc().initWithActions_(actions)  # keep a reference; menus don't retain targets
         menu = NSMenu.alloc().init()
         menu.setAutoenablesItems_(False)
-        self.status = menu.addItemWithTitle_action_keyEquivalent_("Murmur — starting…", None, "")
+        self.status = menu.addItemWithTitle_action_keyEquivalent_("Lafz — starting…", None, "")
         self.status.setEnabled_(False)
         menu.addItem_(NSMenuItem.separatorItem())
-        for tag, title in enumerate(("Open Murmur", "Settings…", "Undo Last Paste", None, "Quit Murmur")):
+        for tag, title in enumerate(("Open Lafz", "Settings…", "Undo Last Paste", None, "Quit Lafz")):
             if title is None:
                 menu.addItem_(NSMenuItem.separatorItem())
                 continue
@@ -39,10 +39,10 @@ class MenuBar:
             entry.setTag_(tag if tag < 3 else 3)
         self.item.setMenu_(menu)
         self.icon = NSImage.alloc().initWithContentsOfFile_(BEAR) or \
-            NSImage.imageWithSystemSymbolName_accessibilityDescription_("mic", "Murmur")
+            NSImage.imageWithSystemSymbolName_accessibilityDescription_("mic", "Lafz")
         self.icon.setSize_((18, 18))
         self.icon.setTemplate_(True)  # drawn black or white to match the menu bar, like the system icons
-        self.icon.setAccessibilityDescription_("Murmur")
+        self.icon.setAccessibilityDescription_("Lafz")
         self.item.button().setImage_(self.icon)
         self.state = None
         self.set_state("idle")
@@ -61,4 +61,4 @@ class MenuBar:
         button.setAlphaValue_(0.5 if state in ("transcribing", "cleaning") else 1.0)  # dimmed while working
 
     def set_status(self, text):
-        self.status.setTitle_(f"Murmur — {text}")
+        self.status.setTitle_(f"Lafz — {text}")

@@ -103,7 +103,7 @@ class MacPill:
             NSObject.cancelPreviousPerformRequestsWithTarget_(self.panel)  # a pending orderOut from hide()
             self._place(WIDTHS[mode], animate=False)
             self.panel.setAlphaValue_(0.0)
-            self.panel.orderFrontRegardless()  # shows without activating Murmur
+            self.panel.orderFrontRegardless()  # shows without activating Lafz
             NSAnimationContext.beginGrouping()
             NSAnimationContext.currentContext().setDuration_(0.15)
             self.panel.animator().setAlphaValue_(1.0)

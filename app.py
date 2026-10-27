@@ -1,4 +1,4 @@
-"""Murmur — private push-to-talk dictation for macOS and Windows.
+"""Lafz — private push-to-talk dictation for macOS and Windows.
 Hold the hotkey (Right-Option on Mac, Right-Ctrl on Windows), speak, release -> text is cleaned up and pasted at the
 cursor. Double-tap for hands-free; add Shift for command mode. Fully local: Whisper (STT) + Ollama (cleanup).
 
@@ -7,7 +7,7 @@ shown in a native frosted window on macOS (macwindow.py) and as an Edge app wind
 import os, sys
 
 if sys.stdout is None or sys.stderr is None:  # pythonw.exe (Windows shortcut) has no console; progress bars need one
-    sys.stdout = sys.stderr = open(os.path.join(os.path.expanduser("~"), "murmur.log"), "a", buffering=1,
+    sys.stdout = sys.stderr = open(os.path.join(os.path.expanduser("~"), "lafz.log"), "a", buffering=1,
                                    encoding="utf-8")
 
 import json, math, queue, shutil, subprocess, threading, time, urllib.request
@@ -24,7 +24,7 @@ import webui
 from system import MAC
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 HOTKEY_CHOICES = ({"alt_r": "Right Option ⌥", "cmd_r": "Right Command ⌘", "ctrl_r": "Right Control ⌃"} if MAC else
                   {"ctrl_r": "Right Ctrl", "shift_r": "Right Shift", "alt_r": "Right Alt (may open app menus)"})
 UNDO_NAME = "⌃⌘Z" if MAC else "Ctrl+Alt+Z"
@@ -48,10 +48,16 @@ DEFAULTS = {
 BOOL_SETTINGS = {k for k, v in DEFAULTS.items() if isinstance(v, bool)} - {"first_run"}
 
 
-class Murmur:
+class Lafz:
     def __init__(self):
+        system.migrate_from_murmur()
         system.protect_files()
         self.settings = {**DEFAULTS, **system.load_json("settings.json", {})}
+        if self.settings["start_at_login"]:
+            try:
+                system.set_start_at_login(True)  # re-registers the login item under the current name and location
+            except OSError:
+                pass
         self.settings["model"] = engine.model_key(self.settings["model"])
         engine.KEEP_ALIVE = "10m" if self.settings["memory_saver"] else "30m"
         self.history = system.load_json("history.json", [])
@@ -147,14 +153,18 @@ class Murmur:
         elif key == "keep_recordings" and not value:
             system.clear_recordings()
         elif key == "start_at_login":
-            system.set_start_at_login(value)
+            try:
+                system.set_start_at_login(value)
+            except OSError:  # e.g. ~/Library/LaunchAgents owned by root
+                self.save_setting(key, old)
+                self.notify("Couldn't change Start at login: your system didn't allow it")
         elif key == "show_in_dock":
             system.set_show_in_dock(value)
         elif key == "memory_saver":
             engine.KEEP_ALIVE = "10m" if value else "30m"
 
     def vocabulary(self):
-        """(words, fixes) for Whisper: the user's Dictionary plus what Murmur learned. Main thread only."""
+        """(words, fixes) for Whisper: the user's Dictionary plus what Lafz learned. Main thread only."""
         words, fixes = engine.parse_dictionary(self.settings["dictionary"])
         if self.settings["learn"]:
             words = words + self.learner.hints()
@@ -232,7 +242,7 @@ class Murmur:
         elif kind == "copy_latest":
             edited = action.get("text", "").strip()
             if self.settings["learn"] and self.latest_original and edited != self.latest_original:
-                self.learn_from(self.latest_original, edited)  # corrected in Murmur's own box
+                self.learn_from(self.latest_original, edited)  # corrected in Lafz's own box
                 self.latest_original = self.latest = edited
             self.copy(edited)
             self.notify("Copied")
@@ -303,7 +313,7 @@ class Murmur:
                           detail={"ok": f"Ready ({engine.LLM_MODEL})", "pulling": "Downloading the model…",
                                   "no-model": f"Model {engine.LLM_MODEL} isn't downloaded yet",
                                   "not-running": "Optional: basic cleanup works without it",
-                                  "other-user": "Another account on this computer is running Ollama, so Murmur won't "
+                                  "other-user": "Another account on this computer is running Ollama, so Lafz won't "
                                                 "send it your words. Quit it there to use AI cleanup"}[st]))
         for item in items:
             item.setdefault("required", True)
@@ -350,7 +360,7 @@ class Murmur:
         if MAC:
             from AppKit import NSBundle
             bundle = NSBundle.mainBundle()
-            if bundle.bundleIdentifier() == system.BUNDLE_ID:  # running inside Murmur.app: restart as the app itself
+            if bundle.bundleIdentifier() == system.BUNDLE_ID:  # running inside Lafz.app: restart as the app itself
                 os.execv(bundle.executablePath(), [bundle.executablePath()])
         os.execv(sys.executable, [sys.executable] + sys.argv)
 
@@ -359,7 +369,7 @@ class Murmur:
 
     # ================= learning from corrections =================
     def start_watch(self, pasted):
-        """Remember the field Murmur just pasted into, to see later whether the user corrected the text."""
+        """Remember the field Lafz just pasted into, to see later whether the user corrected the text."""
         found = system.focused_text_field()
         if found is None:
             return
@@ -453,7 +463,7 @@ class Murmur:
                 self.hud_visible = True
                 self.hud.deiconify()
                 self.hud.lift()
-                system.refocus(self.target)  # showing the pill activated Murmur; hand focus back to the user's app
+                system.refocus(self.target)  # showing the pill activated Lafz; hand focus back to the user's app
         if not self.anim_on:
             self.anim_on = True
             self.animate()
@@ -891,7 +901,7 @@ class Murmur:
     # ================= global keyboard (system.watch_keys: main thread on Mac, pynput thread on Windows) ==========
     def on_key(self, name, down, other_app=True):
         if other_app and not self.keys_seen:
-            self.keys_seen = True  # the hotkey reaches Murmur from other apps: Input Monitoring isn't needed
+            self.keys_seen = True  # the hotkey reaches Lafz from other apps: Input Monitoring isn't needed
             self.events.put(("setup_changed",))
         if down:
             self.on_press(name)
@@ -924,13 +934,13 @@ class Murmur:
 
 
 def already_running():
-    """If Murmur is already running, ask it to show its window and return True (so only one copy runs)."""
+    """If Lafz is already running, ask it to show its window and return True (so only one copy runs)."""
     info = system.load_json("instance.json", None)
     if not info:
         return False
     try:
         req = urllib.request.Request(f"http://127.0.0.1:{info['port']}/api/action", json.dumps({"type": "show"}).encode(),
-                                     {"Content-Type": "application/json", "X-Murmur-Token": info["token"]})
+                                     {"Content-Type": "application/json", "X-Lafz-Token": info["token"]})
         urllib.request.urlopen(req, timeout=2).read()
         return True
     except Exception:
@@ -939,8 +949,8 @@ def already_running():
 
 if __name__ == "__main__":
     if not already_running():
-        murmur = Murmur()
+        lafz = Lafz()
         try:
-            murmur.root.mainloop()
+            lafz.root.mainloop()
         finally:
-            murmur.forget_instance()
+            lafz.forget_instance()
