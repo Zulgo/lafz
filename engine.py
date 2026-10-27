@@ -1,5 +1,5 @@
 """Murmur speech engine: speech detection, speech-to-text (Whisper), dictionary and cleanup. No UI code."""
-import difflib, gc, json, os, platform, re, sys, urllib.request
+import difflib, gc, json, os, platform, re, subprocess, sys, urllib.request
 
 import numpy as np
 
@@ -8,7 +8,8 @@ FRAME = int(0.02 * SR)  # 20 ms analysis frames (fallback detector)
 APPLE_SILICON = sys.platform == "darwin" and platform.machine() == "arm64"
 VAD_MODEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "silero_vad.onnx")
 VAD_CHUNK, VAD_CONTEXT = 512, 64  # Silero VAD at 16 kHz: 32 ms chunks plus 64 samples of context
-OLLAMA = "http://localhost:11434"
+OLLAMA_PORT = 11434
+OLLAMA = f"http://127.0.0.1:{OLLAMA_PORT}"  # not "localhost": it may resolve to ::1, a different listener
 LLM_MODEL = "qwen2.5:1.5b"  # Apache 2.0; ~1 GB, fast and faithful for cleanup
 KEEP_ALIVE = "30m"  # how long Ollama keeps the cleanup model in memory; the app shortens it in memory-saver mode
 HALLUCINATIONS = {"thank you.", "thanks for watching.", "you", "bye.", "thank you very much."}
@@ -227,7 +228,37 @@ def rule_clean(text):
     return text
 
 
+def listener_is_mine(port=OLLAMA_PORT):
+    """True if the program listening on this localhost port runs as the current user. Any account on the computer can
+    listen on a localhost port, so without this check another signed-in user could pose as Ollama, read dictations
+    and choose the text Murmur pastes."""
+    try:
+        if sys.platform == "darwin":  # lsof only sees this user's processes; -u makes that explicit
+            r = subprocess.run(["/usr/sbin/lsof", "-nP", "-a", f"-u{os.getuid()}", f"-iTCP:{port}", "-sTCP:LISTEN",
+                                "-t"], capture_output=True, timeout=3)
+            return bool(r.stdout.strip())
+        if sys.platform == "win32":
+            hide = subprocess.CREATE_NO_WINDOW
+            rows = subprocess.run(["netstat", "-ano", "-p", "TCP"], capture_output=True, text=True, timeout=5,
+                                  creationflags=hide).stdout.splitlines()
+            # Listening rows have foreign address 0.0.0.0:0 (the state column is translated, so it isn't used)
+            pids = {r.split()[4] for r in rows if len(r.split()) == 5 and r.split()[1].endswith(f":{port}")
+                    and r.split()[2] == "0.0.0.0:0"}
+            me = f"{os.environ.get('USERDOMAIN', '')}\\{os.environ.get('USERNAME', '')}"
+            for pid in pids:
+                out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/FI", f"USERNAME eq {me}", "/FO", "CSV",
+                                      "/NH"], capture_output=True, text=True, timeout=5, creationflags=hide).stdout
+                if out.startswith('"'):  # a match is a CSV row; otherwise an "INFO: no tasks" line
+                    return True
+            return False
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return True  # other systems: not checked
+
+
 def ollama(prompt, timeout=30):
+    if not listener_is_mine():
+        raise OSError("Ollama isn't running under this user")
     req = urllib.request.Request(
         f"{OLLAMA}/api/generate",
         json.dumps({"model": LLM_MODEL, "prompt": prompt, "stream": False, "keep_alive": KEEP_ALIVE,
@@ -238,6 +269,8 @@ def ollama(prompt, timeout=30):
 def warm_ollama():
     """Load the cleanup model into memory ahead of the first dictation (an empty prompt just loads it)."""
     try:
+        if not listener_is_mine():
+            return
         req = urllib.request.Request(f"{OLLAMA}/api/generate", json.dumps(
             {"model": LLM_MODEL, "prompt": "", "keep_alive": KEEP_ALIVE}).encode(), {"Content-Type": "application/json"})
         urllib.request.urlopen(req, timeout=60).read()
@@ -246,11 +279,13 @@ def warm_ollama():
 
 
 def ollama_status():
-    """'ok', 'no-model' or 'not-running'."""
+    """'ok', 'no-model', 'not-running' or 'other-user'."""
     try:
         tags = json.load(urllib.request.urlopen(f"{OLLAMA}/api/tags", timeout=2))
     except Exception:
         return "not-running"
+    if not listener_is_mine():
+        return "other-user"
     return "ok" if LLM_MODEL in {m.get("name") for m in tags.get("models", [])} else "no-model"
 
 

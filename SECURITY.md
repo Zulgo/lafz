@@ -17,7 +17,9 @@ is lost or stolen.
 ## Network
 
 - After the one-time model downloads (Hugging Face, Ollama), Murmur makes no internet connections.
-- The AI cleanup and command mode talk only to Ollama on `localhost`.
+- The AI cleanup and command mode talk only to Ollama on `127.0.0.1`. Before sending anything, Murmur checks that
+  the program on Ollama's port runs under your own account, so another person signed in to the same computer can't
+  pose as Ollama to read your dictations or choose the text Murmur pastes.
 - Murmur's window is served by a small web server bound to **127.0.0.1** (not reachable from your network). Every
   request needs a secret token created at each launch; requests addressed to any other host name are refused
   (DNS-rebinding protection), and no cross-origin access is allowed, so websites can't read or control Murmur.
@@ -33,9 +35,10 @@ After an update that changes the app, macOS asks you to allow them again.
 
 ## Things to be aware of
 
-- **Murmur runs from its folder.** Murmur.app runs the Python code in the folder you installed it in, with the
-  permissions you granted. Anything that can change files in that folder could change what Murmur does. Install it in
-  your own home folder, keep it writable only by you, and don't run untrusted software that could tamper with it.
+- **Murmur runs from its folder.** Murmur.app runs the Python code in the folder you installed it in, and the Python
+  that uv installed (`~/.local/share/uv/python`), with the permissions you granted. Anything running as you that can
+  change those files could change what Murmur does and use its Microphone and Accessibility access. Keep them
+  writable only by you, and don't run untrusted software on your account.
 - **Installers download tools.** `install_mac.command` and `install_windows.bat` install uv with its official
   installer script and Ollama via Homebrew or winget. Read them before running if you prefer.
 - **Windows:** the window opens in Microsoft Edge's app mode; the address contains a per-launch token, which Edge may

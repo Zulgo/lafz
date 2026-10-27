@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Security
+- Murmur now sends text to Ollama only if Ollama runs under your own account. Before, another person signed in to the
+  same computer could run a fake Ollama to read dictations and choose what Murmur pastes.
+- Ollama is reached at `127.0.0.1` instead of `localhost`, which could resolve to a different address.
+
 ## 0.4.0
 
 ### New

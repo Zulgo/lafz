@@ -105,3 +105,23 @@ def test_ai_saying_no_correction_is_trusted(monkeypatch):
 def test_correction_with_units_and_whisper_punctuation():
     assert engine._only_deleted("Let's meet at 3. No wait. 4pm.", "Let's meet at 4 pm.")
     assert engine._rule_corrections("Let's meet at 3. No wait. 4pm.") == "Let's meet at 4pm."
+
+
+def test_listener_owner_check():
+    import socket
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        s.listen()
+        port = s.getsockname()[1]
+        assert engine.listener_is_mine(port)  # our own process is listening
+    assert not engine.listener_is_mine(port)  # nobody is
+
+
+def test_ollama_owned_by_someone_else_gets_nothing(monkeypatch):
+    monkeypatch.setattr(engine, "listener_is_mine", lambda *a: False)
+    def send(*a, **k):
+        raise AssertionError("dictation was sent")
+    monkeypatch.setattr(engine.urllib.request, "urlopen", send)
+    with pytest.raises(OSError):
+        engine.ollama("private words")
+    assert engine.cleanup("um so this is a private message", "clean")[0] == "So this is a private message."

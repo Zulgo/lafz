@@ -302,7 +302,9 @@ class Murmur:
                                                   "not-running": "Start" if self.ollama_path() else "Get Ollama"}.get(st),
                           detail={"ok": f"Ready ({engine.LLM_MODEL})", "pulling": "Downloading the model…",
                                   "no-model": f"Model {engine.LLM_MODEL} isn't downloaded yet",
-                                  "not-running": "Optional: basic cleanup works without it"}[st]))
+                                  "not-running": "Optional: basic cleanup works without it",
+                                  "other-user": "Another account on this computer is running Ollama, so Murmur won't "
+                                                "send it your words. Quit it there to use AI cleanup"}[st]))
         for item in items:
             item.setdefault("required", True)
         self.setup = items
