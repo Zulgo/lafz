@@ -8,11 +8,30 @@ BUNDLE_ID = "local.murmur.dictation"
 
 # ---- settings / history files ----
 def config_dir():
+    """Murmur's private folder (history, recordings, settings): readable by the user's account only."""
     base = (os.path.expanduser("~/Library/Application Support") if MAC else
             os.environ.get("APPDATA", os.path.expanduser("~")))
     path = os.path.join(base, "Murmur")
-    os.makedirs(path, exist_ok=True)
+    os.makedirs(path, mode=0o700, exist_ok=True)
     return path
+
+
+def _private_open(path, mode="w"):
+    """Open a file for writing that only the user's account can read (dictations are private)."""
+    return os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), mode, encoding="utf-8")
+
+
+def protect_files():
+    """Tighten permissions on files written by older versions."""
+    if WINDOWS:  # %APPDATA% is already private to the user
+        return
+    folder = config_dir()
+    os.chmod(folder, 0o700)
+    for root, dirs, files in os.walk(folder):
+        for d in dirs:
+            os.chmod(os.path.join(root, d), 0o700)
+        for f in files:
+            os.chmod(os.path.join(root, f), 0o600)
 
 
 def load_json(name, default):
@@ -25,7 +44,7 @@ def load_json(name, default):
 
 def save_json(name, data):
     path = os.path.join(config_dir(), name)
-    with open(path + ".tmp", "w", encoding="utf-8") as f:
+    with _private_open(path + ".tmp") as f:
         json.dump(data, f, indent=1)
     os.replace(path + ".tmp", path)
 
@@ -36,7 +55,7 @@ KEEP_RECORDINGS = 10
 
 def _recordings_dir():
     path = os.path.join(config_dir(), "recordings")
-    os.makedirs(path, exist_ok=True)
+    os.makedirs(path, mode=0o700, exist_ok=True)
     return path
 
 
@@ -44,8 +63,9 @@ def save_recording(audio, meta):
     """Store a prepared 16 kHz clip with its metadata; keep only the newest KEEP_RECORDINGS."""
     import numpy as np
     stem = os.path.join(_recordings_dir(), str(int(meta["time"] * 1000)))
-    np.save(stem + ".npy", audio)
-    with open(stem + ".json", "w", encoding="utf-8") as f:
+    with os.fdopen(os.open(stem + ".npy", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "wb") as f:
+        np.save(f, audio)
+    with _private_open(stem + ".json") as f:
         json.dump(meta, f)
     for old in list_recordings()[KEEP_RECORDINGS:]:
         _remove_recording(old["stem"])

@@ -69,6 +69,8 @@ C
 clang -O2 -DPROJ="\"$PROJ\"" -I"$PY_INC" -L"$PY_LIB" -lpython"$PY_VER" -Wl,-rpath,"$PY_LIB" \
   -o "$APP/Contents/MacOS/Murmur" "$SRC"
 xattr -cr "$APP"
-# Identify the app by its bundle ID rather than the build's hash, so macOS keeps permissions across rebuilds.
-codesign --force --deep --sign - -r='designated => identifier "local.murmur.dictation"' "$APP"
+# Ad-hoc signature: macOS identifies the app by the hash of this exact build, so no other program can claim Murmur's
+# permissions. (Identifying it by bundle ID alone let any program named local.murmur.dictation inherit them.)
+# Rebuilding unchanged code gives the same hash and keeps permissions; after an update, allow them again once.
+codesign --force --deep --sign - "$APP"
 echo "Built $APP"

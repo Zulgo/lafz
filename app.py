@@ -50,6 +50,7 @@ BOOL_SETTINGS = {k for k, v in DEFAULTS.items() if isinstance(v, bool)} - {"firs
 
 class Murmur:
     def __init__(self):
+        system.protect_files()
         self.settings = {**DEFAULTS, **system.load_json("settings.json", {})}
         self.settings["model"] = engine.model_key(self.settings["model"])
         engine.KEEP_ALIVE = "10m" if self.settings["memory_saver"] else "30m"
