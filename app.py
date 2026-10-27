@@ -24,7 +24,7 @@ import webui
 from system import MAC
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VERSION = "0.6.0"
+VERSION = "0.6.1"
 HOTKEY_CHOICES = ({"alt_r": "Right Option ⌥", "cmd_r": "Right Command ⌘", "ctrl_r": "Right Control ⌃"} if MAC else
                   {"ctrl_r": "Right Ctrl", "shift_r": "Right Shift", "alt_r": "Right Alt (may open app menus)"})
 UNDO_NAME = "⌃⌘Z" if MAC else "Ctrl+Alt+Z"

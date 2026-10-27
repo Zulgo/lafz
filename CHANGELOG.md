@@ -1,16 +1,24 @@
 # Changelog
 
+## 0.6.1
+
+### Fixed
+- If Murmur is still running when Lafz starts, Lafz asks it to quit, so they don't both answer the hotkey and paste
+  twice.
+- Windows: if Murmur's settings folder can't be moved yet, Lafz uses it for that launch and moves it next time
+  (before, your history could stay hidden).
+- Removing Murmur's old login item can no longer stop Lafz from starting.
+- Saying only "scratch that" no longer pastes an empty dictation or adds a blank history entry.
+
 ## 0.6.0
 
 ### Changed
 - **Murmur is now Lafz** (لفظ, Urdu for "word"). The app, window, menu bar, installers and GitHub repository use the
   new name. Your history, settings, dictionary and learned words move over automatically, and Start at login keeps
   working. On a Mac, the installer replaces Murmur.app with Lafz.app; allow Microphone and Accessibility once.
-  If Murmur is still running when Lafz starts, Lafz asks it to quit, so they don't both answer the hotkey.
 
 ### Fixed
 - Turning on Start at login shows a message when the system doesn't allow it, instead of failing silently.
-- Saying only "scratch that" no longer pastes an empty dictation or adds a blank history entry.
 
 ## 0.5.0
 
