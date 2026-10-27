@@ -79,10 +79,15 @@ def _handler(server):
             self._send(404)
 
         def do_POST(self):
+            try:
+                length = max(0, min(int(self.headers.get("Content-Length", 0)), 1_000_000))
+            except ValueError:
+                return self._send(400)
+            body = self.rfile.read(length)  # read before replying: Windows aborts a connection closed with unread data
             if urlparse(self.path).path != "/api/action" or not self._allowed(True):
                 return self._send(403)
             try:
-                action = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 1_000_000)))
+                action = json.loads(body)
             except ValueError:
                 return self._send(400)
             server.on_action(action)
