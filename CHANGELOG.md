@@ -55,7 +55,7 @@
 - **Command mode:** hold Shift + the hotkey to tell the local AI what to do with selected text, or what to write.
 - **Voice commands:** "new line", "new paragraph" and "bullet point".
 - **Keeps your clipboard:** what you had copied is restored after Lafz pastes.
-- **Languages:** 16 languages plus auto-detect.
+- **Languages:** 15 languages plus auto-detect.
 - **Memory saver:** the speech model rests after 10 idle minutes and wakes when you speak.
 - **Menu-bar-only mode** on macOS (hide the Dock icon).
 - **Learns from your corrections** and vocabulary, locally.

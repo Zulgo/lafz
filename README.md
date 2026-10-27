@@ -41,7 +41,7 @@ After the one-time model downloads, Lafz works fully offline.
 - **Your clipboard is kept:** whatever you had copied is put back after Lafz pastes.
 - **Live preview:** see your words while you're still speaking.
 - **Writing styles:** Raw, Clean (fillers removed), Formal (polite rewrite), Bullet points, plus **per-app styles** (raw in the terminal, formal in Mail).
-- **16 languages** or auto-detect, including English, Spanish, French, German, Hindi, Urdu, Arabic, Chinese and Japanese.
+- **15 languages** or auto-detect, including English, Spanish, French, German, Hindi, Urdu, Arabic, Chinese and Japanese.
 - **Learns from you, locally:** correct the same word twice and Lafz fixes it automatically from then on; names you use often become spelling hints.
 - **Personal dictionary**, **searchable history**, **undo last paste**, and **model comparison** on your own recordings.
 - **Memory saver** for 8 GB machines: the speech model rests after 10 idle minutes and wakes when you speak.
