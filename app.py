@@ -938,11 +938,21 @@ def already_running():
     info = system.load_json("instance.json", None)
     if not info:
         return False
-    try:
-        req = urllib.request.Request(f"http://127.0.0.1:{info['port']}/api/action", json.dumps({"type": "show"}).encode(),
-                                     {"Content-Type": "application/json", "X-Lafz-Token": info["token"]})
+
+    def send(action, header):
+        req = urllib.request.Request(f"http://127.0.0.1:{info['port']}/api/action", json.dumps({"type": action}).encode(),
+                                     {"Content-Type": "application/json", header: info["token"]})
         urllib.request.urlopen(req, timeout=2).read()
+    try:
+        send("show", "X-Lafz-Token")
         return True
+    except urllib.error.HTTPError:
+        try:  # Murmur (Lafz's old name) is still running: it would answer the same hotkey, so ask it to quit
+            send("quit", "X-Murmur-Token")
+            time.sleep(1)
+        except Exception:
+            pass
+        return False
     except Exception:
         return False
 

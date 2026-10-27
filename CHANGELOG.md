@@ -6,6 +6,10 @@
 - **Murmur is now Lafz** (لفظ, Urdu for "word"). The app, window, menu bar, installers and GitHub repository use the
   new name. Your history, settings, dictionary and learned words move over automatically, and Start at login keeps
   working. On a Mac, the installer replaces Murmur.app with Lafz.app; allow Microphone and Accessibility once.
+  If Murmur is still running when Lafz starts, Lafz asks it to quit, so they don't both answer the hotkey.
+
+### Fixed
+- Turning on Start at login shows a message when the system doesn't allow it, instead of failing silently.
 
 ## 0.5.0
 
