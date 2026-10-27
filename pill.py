@@ -11,7 +11,8 @@ from AppKit import (NSAnimationContext, NSBackingStoreBuffered, NSColor, NSFont,
                     NSWindowStyleMaskNonactivatingPanel)
 from Quartz import CALayer, CATransaction, CATransform3DMakeScale
 
-H, RADIUS, BOTTOM = 44, 14, 96
+H, RADIUS, BOTTOM = 44, 16, 96
+GLASS_ALPHA = 0.7  # how solid the frosted glass is (1 = macOS's standard HUD)
 BARS, BAR_W, BAR_GAP = 11, 3, 3
 WIDTHS = {"listening": 128, "listening_text": 380, "transcribing": 72, "cleaning": 72}
 
@@ -41,23 +42,31 @@ class MacPill:
         p.setHasShadow_(True)
         p.setReleasedWhenClosed_(False)
 
-        glass = NSVisualEffectView.alloc().initWithFrame_(NSMakeRect(0, 0, WIDTHS["listening"], H))
+        # A rounded container clips everything: the glass, and on top of it the dots, bars and text (kept fully opaque).
+        box = NSView.alloc().initWithFrame_(NSMakeRect(0, 0, WIDTHS["listening"], H))
+        box.setWantsLayer_(True)
+        box.layer().setCornerRadius_(RADIUS)
+        box.layer().setCornerCurve_("continuous")  # Apple's smooth "squircle" corners
+        box.layer().setMasksToBounds_(True)
+        p.setContentView_(box)
+
+        glass = NSVisualEffectView.alloc().initWithFrame_(box.bounds())
         glass.setMaterial_(NSVisualEffectMaterialHUDWindow)  # the blurred dark glass of macOS's volume/brightness HUD
         glass.setBlendingMode_(NSVisualEffectBlendingModeBehindWindow)
         glass.setState_(NSVisualEffectStateActive)
         glass.setAutoresizingMask_(NSViewWidthSizable | NSViewHeightSizable)
-        glass.setWantsLayer_(True)
-        glass.layer().setCornerRadius_(RADIUS)
-        glass.layer().setMasksToBounds_(True)
-        glass.layer().setBorderWidth_(0.5)
-        glass.layer().setBorderColor_(rgba(255, 255, 255, 0.14))
-        p.setContentView_(glass)
+        glass.setAlphaValue_(GLASS_ALPHA)  # see more of what's behind
+        box.addSubview_(glass)
 
-        self.canvas = NSView.alloc().initWithFrame_(glass.bounds())
+        self.canvas = NSView.alloc().initWithFrame_(box.bounds())
         self.canvas.setAutoresizingMask_(NSViewWidthSizable | NSViewHeightSizable)
         self.canvas.setWantsLayer_(True)
-        glass.addSubview_(self.canvas)
+        box.addSubview_(self.canvas)
         root = self.canvas.layer()
+        root.setCornerRadius_(RADIUS)
+        root.setCornerCurve_("continuous")
+        root.setBorderWidth_(0.5)
+        root.setBorderColor_(rgba(255, 255, 255, 0.10))  # a hairline edge, softer than before
 
         def layer(w, h, color):
             lay = CALayer.layer()
@@ -79,7 +88,7 @@ class MacPill:
         self.label.setFont_(NSFont.systemFontOfSize_weight_(13, NSFontWeightMedium))
         self.label.setTextColor_(NSColor.colorWithSRGBRed_green_blue_alpha_(1, 1, 1, 0.82))
         self.label.setLineBreakMode_(NSLineBreakByTruncatingHead)
-        glass.addSubview_(self.label)
+        box.addSubview_(self.label)
 
         self.mode, self.visible, self.level, self.width = None, False, 0.0, WIDTHS["listening"]
 
@@ -92,8 +101,10 @@ class MacPill:
             NSAnimationContext.currentContext().setDuration_(0.18)
             self.panel.animator().setFrame_display_(rect, True)
             NSAnimationContext.endGrouping()
+            self.panel.performSelector_withObject_afterDelay_("invalidateShadow", None, 0.2)  # once the resize is done
         else:
             self.panel.setFrame_display_(rect, True)
+        self.panel.invalidateShadow()  # the shadow follows the rounded shape, not the window's rectangle
         self.width = width
 
     def show(self, mode):

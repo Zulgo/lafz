@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Changed
+- The recording pill on macOS is smoother (Apple-style rounded corners, softer edge) and more see-through.
+
 ### Fixed
 - Lafz no longer freezes when the microphone changes during a recording (AirPods or a headset switching mode).
 
