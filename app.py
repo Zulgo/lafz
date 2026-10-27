@@ -853,6 +853,9 @@ class Lafz:
             note = ""
             if style != "raw" and self.settings["self_corrections"]:  # "at 3, no wait, 4 pm" -> "at 4 pm"
                 text, _ = engine.resolve_corrections(text)
+                if not text.strip():  # "scratch that" took back everything
+                    self.events.put(("failed", "Scratched: nothing to paste"))
+                    return
             # Voice commands go first, so cleanup can't drop "new line" as filler; formal/bullet rewrites
             # restructure the text anyway, so for those the commands are applied to the result.
             line_by_line = self.settings["voice_commands"] and style in ("raw", "clean")

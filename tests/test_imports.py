@@ -68,3 +68,17 @@ def test_old_murmur_is_asked_to_quit():
         assert got == ["quit"]                 # ...after asking the old Murmur to quit
     finally:
         server.shutdown()
+
+
+def test_murmur_folder_used_until_it_can_move(monkeypatch):
+    import os
+    import system
+    old = os.path.join(system._settings_base(), "Murmur")
+    os.makedirs(old)
+    rename = os.rename
+    def locked(*a):
+        raise PermissionError("in use")
+    monkeypatch.setattr(system.os, "rename", locked)
+    assert system.config_dir() == old  # Windows refused the move: keep using the user's data this time
+    monkeypatch.setattr(system.os, "rename", rename)
+    assert system.config_dir().endswith("Lafz") and not os.path.exists(old)  # moved on the next launch

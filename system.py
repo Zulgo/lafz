@@ -14,19 +14,20 @@ def _settings_base():
 
 
 def migrate_from_murmur():
-    """Lafz was called Murmur up to 0.5.0: remove Murmur's login item (config_dir() moves its files)."""
-    if MAC:
-        agent = os.path.expanduser(f"~/Library/LaunchAgents/{OLD_BUNDLE_ID}.plist")
-        if os.path.exists(agent):
-            os.remove(agent)
-    elif WINDOWS:
-        import winreg
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0,
-                            winreg.KEY_SET_VALUE) as key:
-            try:
+    """Lafz was called Murmur up to 0.5.0: remove Murmur's login item (config_dir() moves its files).
+    Best effort: a cleanup that isn't allowed must not stop Lafz from starting."""
+    try:
+        if MAC:
+            agent = os.path.expanduser(f"~/Library/LaunchAgents/{OLD_BUNDLE_ID}.plist")
+            if os.path.exists(agent):
+                os.remove(agent)
+        elif WINDOWS:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0,
+                                winreg.KEY_SET_VALUE) as key:
                 winreg.DeleteValue(key, "Murmur")
-            except FileNotFoundError:
-                pass
+    except OSError:  # nothing to remove, or not allowed
+        pass
 
 
 def config_dir():
@@ -36,8 +37,8 @@ def config_dir():
     if os.path.isdir(old) and not os.path.exists(path):
         try:
             os.rename(old, path)
-        except OSError:  # Windows: Murmur is still running and holds a file open; try again next launch
-            pass
+        except OSError:  # Windows: Murmur is still running and holds a file open; use its folder, move it next time
+            return old
     os.makedirs(path, mode=0o700, exist_ok=True)
     return path
 

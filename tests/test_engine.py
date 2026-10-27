@@ -125,3 +125,7 @@ def test_ollama_owned_by_someone_else_gets_nothing(monkeypatch):
     with pytest.raises(OSError):
         engine.ollama("private words")
     assert engine.cleanup("um so this is a private message", "clean")[0] == "So this is a private message."
+
+
+def test_scratching_everything_leaves_nothing():
+    assert engine.resolve_corrections("Scratch that.") == ("", True)

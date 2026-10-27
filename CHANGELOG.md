@@ -10,6 +10,7 @@
 
 ### Fixed
 - Turning on Start at login shows a message when the system doesn't allow it, instead of failing silently.
+- Saying only "scratch that" no longer pastes an empty dictation or adds a blank history entry.
 
 ## 0.5.0
 
