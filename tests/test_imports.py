@@ -82,3 +82,25 @@ def test_murmur_folder_used_until_it_can_move(monkeypatch):
     assert system.config_dir() == old  # Windows refused the move: keep using the user's data this time
     monkeypatch.setattr(system.os, "rename", rename)
     assert system.config_dir().endswith("Lafz") and not os.path.exists(old)  # moved on the next launch
+
+
+def test_stuck_microphone_does_not_freeze_the_app():
+    import threading, time, types
+    import app
+    release = threading.Event()
+
+    class StuckStream:  # like PortAudio deadlocking when the audio device changes mid-recording
+        def stop(self):
+            release.wait(5)
+
+        def close(self):
+            pass
+
+    fake = types.SimpleNamespace(stream=StuckStream(), recording=True, level=0.5, stoppers=[])
+    t0 = time.monotonic()
+    app.Lafz.stop_stream(fake)
+    assert time.monotonic() - t0 < 0.5  # returned at once
+    assert fake.stream is None and not fake.recording and fake.stoppers[0].is_alive()
+    release.set()
+    fake.stoppers[0].join(2)
+    assert not fake.stoppers[0].is_alive()

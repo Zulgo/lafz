@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Lafz no longer freezes when the microphone changes during a recording (AirPods or a headset switching mode).
+
 ## 0.6.1
 
 ### Fixed

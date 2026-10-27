@@ -72,6 +72,7 @@ class Lafz:
         self.stt_thread = ThreadPoolExecutor(max_workers=1, thread_name_prefix="stt")
         self.stt, self.stt_error, self.stt_status, self.last_used = None, "", "loading", time.monotonic()
         self.frames, self.rate, self.stream, self.level, self.rec_start = [], engine.SR, None, 0.0, 0.0
+        self.stoppers = []  # threads stopping microphones (see stop_stream)
         self.recording, self.state, self.session = False, "idle", 0
         self.press_t, self.ignore_up, self.tap_timer, self.discard = 0.0, False, None, False
         self.target, self.last_paste, self.preview, self.preview_busy = None, None, "", False
@@ -723,13 +724,15 @@ class Lafz:
     def start_recording(self, command=False):
         if self.watch is not None:
             self.check_watch(self.watch, final=True)
-        self.target, self.frames, self.preview, self.discard = system.frontmost(), [], "", False
+        self.target, self.preview, self.discard = system.frontmost(), "", False
         self.command, self.selection = command, system.selected_text() if command else ""
         self.session += 1
+        frames = self.frames = []  # this recording's own list: a microphone that's slow to stop can't add to the next
 
         def callback(data, *_):
-            self.frames.append(data[:, 0].copy())
-            self.level = engine.level(data[:, 0])
+            frames.append(data[:, 0].copy())
+            if frames is self.frames:
+                self.level = engine.level(data[:, 0])
         self.stream = self.open_microphone(callback)
         self.rate = int(self.stream.samplerate)
         self.recording, self.rec_start = True, time.monotonic()
@@ -747,6 +750,8 @@ class Lafz:
                 stream.start()
                 return stream
             except sd.PortAudioError as e:
+                if any(t.is_alive() for t in self.stoppers):  # re-initializing would wait on the stuck microphone
+                    raise RuntimeError("the microphone stopped responding — quit and reopen Lafz") from e
                 if attempt:
                     raise RuntimeError("couldn't open the microphone — check that it's connected") from e
                 sd._terminate()
@@ -754,13 +759,21 @@ class Lafz:
                 self.refresh_mics()
 
     def stop_stream(self):
-        if self.stream is not None:
+        """Stop the microphone off the main thread. When the audio device changes during a recording (AirPods or a
+        headset switching mode), stopping can deadlock inside PortAudio/CoreAudio; the app must not freeze with it."""
+        stream, self.stream, self.recording, self.level = self.stream, None, False, 0.0
+        if stream is None:
+            return
+
+        def stop():
             try:
-                self.stream.stop()
-                self.stream.close()
+                stream.stop()
+                stream.close()
             except Exception:
                 pass
-        self.stream, self.recording, self.level = None, False, 0.0
+        thread = threading.Thread(target=stop, daemon=True)
+        thread.start()
+        self.stoppers = [t for t in self.stoppers if t.is_alive()] + [thread]
 
     def finish_recording(self):
         self.stop_stream()
@@ -770,7 +783,7 @@ class Lafz:
         style = self.style_for(self.target)
         self.set_status("Transcribing…", "transcribing")
         self.busy += 1
-        self.jobs.put((np.concatenate(self.frames), self.rate, style, self.settings["auto_paste"], self.target,
+        self.jobs.put((np.concatenate(self.frames[:]), self.rate, style, self.settings["auto_paste"], self.target,
                        *self.vocabulary(), self.command, self.selection))
         self.command = False
 
@@ -967,3 +980,6 @@ if __name__ == "__main__":
             lafz.root.mainloop()
         finally:
             lafz.forget_instance()
+            if any(t.is_alive() for t in lafz.stoppers):  # a stuck microphone would hang PortAudio's exit cleanup
+                sys.stdout.flush()
+                os._exit(0)
