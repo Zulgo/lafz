@@ -87,8 +87,10 @@ From now on, open Murmur from Spotlight (⌘ Space → "Murmur"), Launchpad or t
 ### Windows (experimental)
 
 1. Download the **Source code (zip)** from the [latest release](https://github.com/Zulgo/murmur/releases/latest) and unzip it, for example into `C:\Users\<you>\murmur`.
-2. Double-click **`install_windows.bat`**. It installs uv and Ollama, downloads the models and puts a **Murmur** shortcut on your Desktop.
-3. Open **Murmur** from the Desktop. Its window opens as an app window in Microsoft Edge.
+2. Double-click **`install_windows.bat`**. If Windows shows "Windows protected your PC", click **More info**, then **Run anyway**.
+   It installs uv and Ollama, downloads the cleanup model and puts a **Murmur** shortcut on your Desktop.
+3. Open **Murmur** from the Desktop. Its window opens as an app window in Microsoft Edge. Hold **Right Ctrl** to dictate.
+   The first dictation downloads the speech model (about 1.6 GB), so give it a few minutes.
 
 If something fails on Windows, please [open an issue](https://github.com/Zulgo/murmur/issues/new/choose) with the error. It helps a lot.
 
@@ -103,6 +105,14 @@ uv run pytest                # run the tests
 ```
 
 On macOS, `./build_app.sh` creates the clickable `~/Applications/Murmur.app`.
+
+### Updating
+
+- **Mac:** in Murmur's folder, run `git pull` (or unzip the new release over it), then `./install_mac.command`. If the app
+  changed, macOS asks you to allow Microphone and Accessibility again once.
+- **Windows:** unzip the new release over the old folder and run `install_windows.bat` again.
+
+Your history, dictionary and learned words are kept.
 
 ## How to use
 

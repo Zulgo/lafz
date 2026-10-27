@@ -1,11 +1,26 @@
 # Changelog
 
-## Unreleased
+## 0.5.0
+
+### New
+- **Self-corrections:** "let's meet at 3, no wait, 4 pm" becomes "let's meet at 4 pm". "Scratch that" removes the
+  sentence before it. Turn it off in Settings.
+- The Dock and app switcher show **Murmur** with the bear icon instead of "python3.12".
 
 ### Security
+- Murmur.app's permissions are tied to its exact build, so no other program can claim them. After updating, macOS
+  asks you to allow them again once.
 - Murmur now sends text to Ollama only if Ollama runs under your own account. Before, another person signed in to the
   same computer could run a fake Ollama to read dictations and choose what Murmur pastes.
 - Ollama is reached at `127.0.0.1` instead of `localhost`, which could resolve to a different address.
+
+### Fixed
+- The microphone works again after AirPods or a headset connect or disconnect.
+- Opening Murmur from Spotlight or Finder while its window is closed shows the window.
+- "Transcribing…" no longer disappears while the speech model is still loading.
+- Deleting a history entry can no longer delete a different one when a new dictation arrives.
+- Without Accessibility, the dictated text stays on the clipboard so you can paste it yourself.
+- The Latest card keeps updating after you've clicked into it.
 
 ## 0.4.0
 
